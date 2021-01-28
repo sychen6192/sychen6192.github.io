@@ -45,7 +45,7 @@ sidebar:
 career-profile:
     title: Profile
     summary: |
-      I am a detail-oriented multi-tasker who has excellent learning ability to thrives in fast-paced environments.\
+      I am a detail-oriented multi-tasker who has an excellent learning ability to thrives in fast-paced environments.\
       I am good at leadership and teamwork, able to quickly understand needs and make effective suggestions.\
       Committed to applying blockchain and artificial intelligence technology to make human life better.  
 
@@ -107,6 +107,13 @@ experiences:
       details: |
         - According to thesis’ s abstracts to classify them to different categories by NLP.
         - We reached around 65% accuracy by using BERT model.
+
+    - role: MIS
+      time: 2017 - Present
+      company: NCTU
+      details: |
+        - Use Django MVC Framework to increase maintenance efficiency.
+        - Utilize Vue.js and Laravel framework to develop SPA one-page website, reducing server loading and improving development and maintenance efficiency
 
     - role: Assistant
       time: 2019 - 2020
