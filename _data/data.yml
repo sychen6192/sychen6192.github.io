@@ -45,8 +45,8 @@ sidebar:
 career-profile:
     title: Profile
     summary: |
-      I am a detail-oriented multi-tasker who has excellent learning ability to thrives in fast-paced environments. &amp;
-      I am good at leadership and teamwork, able to quickly understand needs and make effective suggestions. &amp;
+      I am a detail-oriented multi-tasker who has excellent learning ability to thrives in fast-paced environments.\
+      I am good at leadership and teamwork, able to quickly understand needs and make effective suggestions.\
       Committed to applying blockchain and artificial intelligence technology to make human life better.  
 
 
@@ -56,7 +56,8 @@ educationcomplete:
       university: NCTU (Hsinchu, Taiwan)
       time: 2019 - 2021
       details: |
-        Master degree in Information Management &amp; Lab of Information Economics and Business Intelligence
+        Master degree in Information Management\
+        Lab of Information Economics and Business Intelligence
 
           - E-Commerce
           - Social computing & Network science
