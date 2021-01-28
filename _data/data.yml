@@ -5,7 +5,8 @@
 sidebar:
     about: False # set to False or comment line if you want to remove the "how to use?" in the sidebar
     education: False # set to False if you want education in main section instead of in sidebar
-
+    skills: True
+    
     # Profile information
     name: Jack Chen
     tagline: Graduate student
@@ -122,17 +123,11 @@ skills:
       - name: Python
         level: 100%
 
-      - name: PyTorch
+      - name: JavaScript
         level: 90%
 
-      - name: Tensorflow
-        level: 60%
+      - name: Solidity
+        level: 70%
 
-      - name: Caffe
-        level: 80%
-
-      - name: Matlab
-        level: 90%
-
-      - name: C/C++
-        level: 75%
+      - name: Cloud
+        level: 70%
