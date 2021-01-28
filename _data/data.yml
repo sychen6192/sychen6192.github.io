@@ -6,7 +6,7 @@ sidebar:
     about: False # set to False or comment line if you want to remove the "how to use?" in the sidebar
     education: False # set to False if you want education in main section instead of in sidebar
     skills: True
-    
+
     # Profile information
     name: Jack Chen
     tagline: Graduate student
@@ -58,8 +58,8 @@ educationcomplete:
       time: 2019 - 2021
       details: |
         Master degree in Information Management
-
-          - Lab of Information Economics and Business Intelligence
+        Lab of Information Economics and Business Intelligence
+        
           - E-Commerce
           - Social computing & Network science
           - Trust computing
