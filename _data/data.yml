@@ -8,7 +8,7 @@ sidebar:
 
     # Profile information
     name: Jack Chen
-    tagline: Computer Vision and Machine Learning researcher
+    tagline: Graduate student
     avatar: profile.png  #place a 100x100 picture inside /assets/images/ folder and provide the name of the file below
 
     # Sidebar links
@@ -41,8 +41,6 @@ sidebar:
       - item: Coffee
         link:
 
-      - item: Biking
-        link:
 
 career-profile:
     title: Profile
