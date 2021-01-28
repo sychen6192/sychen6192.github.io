@@ -4,7 +4,7 @@
 
 sidebar:
     about: False # set to False or comment line if you want to remove the "how to use?" in the sidebar
-    education: True # set to False if you want education in main section instead of in sidebar
+    education: False # set to False if you want education in main section instead of in sidebar
 
     # Profile information
     name: Jack Chen
@@ -35,10 +35,10 @@ sidebar:
         level: Basic
 
     interests:
-      - item: Coffee
+      - item: Blockchain
         link:
 
-      - item: Basketball
+      - item: Coffee
         link:
 
       - item: Biking
@@ -49,27 +49,10 @@ career-profile:
     summary: |
       I am a detail-oriented multi-tasker who has excellent learning ability to thrives in fast-paced environments.
       I am good at leadership and teamwork, able to quickly understand needs and make effective suggestions.
-      Committed to applying blockchain and artificial intelligence technology to make human life better.
-    
-   
-education:
-    - degree: Applied Scientists full-time at AWS
-      university: Germany
-      time: 2020 Oct - current
-      details: |
-
-     
+      Committed to applying blockchain and artificial intelligence technology to make human life better.  
 
 
 educationcomplete:
-    - degree: Internship (Master Thesis)
-      university: Tobii
-      time: 2014 - 2015
-      details: |
-        Master thesis topic Hand gesture classification by Deep learning using infrared camera 
-
-          - Deep learning
-          - Hand Gesture
 
     - degree: Master Degree
       university: NCTU (Hsinchu, Taiwan)
@@ -93,118 +76,46 @@ educationcomplete:
 
 
 experiences:
-    - role: Lead Developer
-      time: 2015 - Present
-      company: Startup Hubs, San Francisco
+    - role: Consultant & Co-founder
+      time: 2019 - Present
+      company: Shang-Da co., Ltd., Taipei
       details: |
-        Describe your role here lorem ipsum dolor sit amet, consectetuer
-        adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa.
-        Cum sociis natoque penatibus et magnis dis parturient montes,
-        nascetur ridiculus mus. Donec quam felis, ultricies nec,
-        pellentesque eu, pretium quis, sem. Nulla consequat massa quis
-        enim. Donec pede justo. Sed ut perspiciatis unde omnis iste natus
-        error sit voluptatem accusantium doloremque laudantium, totam rem
-        aperiam, eaque ipsa quae ab illo inventore veritatis et quasi
-        architecto beatae vitae dicta sunt explicabo.
+        - Provide companies hardware construction, network planning, server setup solutions
 
-          - Bullet point
-          - Bullet point
-
-    - role: Senior Software Engineer
-      time: 2014 - 2015
-      company: Google, London
+    - role: Backend Engineer
+      time: 2020 - 2021
+      company: Trend Micro Inc., Taipei
       details: |
-        Describe your role here lorem ipsum dolor sit amet, consectetuer
-        adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa.
-        Cum sociis natoque penatibus et magnis dis parturient montes,
-        nascetur ridiculus mus. Donec quam felis, ultricies nec,
-        pellentesque eu, pretium quis, sem.
+        - Develop a large-scale competition backend in the company by using Restful API.
+        - Develop new requirements by JavaScript/Python and maintain AWS cloud architecture
 
-          - Bullet point
-          - Bullet point
-
-    - role: UI Developer
-      time: 2012 - 2014
-      company: Amazon, London
+    - role: Backend Engineer & SRE
+      time: 2017 - Present
+      company:
       details: |
-        Describe your role here lorem ipsum dolor sit amet, consectetuer
-        adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa.
-        Cum sociis natoque penatibus et magnis dis parturient montes,
-        nascetur ridiculus mus. Donec quam felis, ultricies nec,
-        pellentesque eu, pretium quis, sem.
+        - Customize the operating system and provide rig hosting services to clients.
+        - Monitor the rig and provide clients Notification services by Linux Shell & Python.
+    
+    - role: Engineer
+      time: 2019 - 2020
+      company: Port of Kaohsiung
+      details: |
+        - Develop a Chatbot to remind the officers, if there are lightning strikes at Kaohsiung ports.
+        - Fetch Restful API on Weather Forecast Center, using python to process data and post requests.
 
-          - Bullet point
-          - Bullet point
+    - role: Artificial Intelligence Thesis Classification Competition
+      time: 2019 - 2020
+      company: AI CUP 2019
+      details: |
+        - According to thesis’ s abstracts to classify them to different categories by NLP.
+        - We reached around 65% accuracy by using BERT model.
 
-projects:
-    title: Projects
-    intro: >
-      You can list your side projects or open source libraries in this
-      section. Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-      Vestibulum et ligula in nunc bibendum fringilla a eu lectus.
+    - role: Assistant
+      time: 2019 - 2020
+      company: Ministry of Education
+      details: |
+        - Set up a website, maintain the server, and update the content and the latest lecture information regularly.
 
-    assignments:
-      - title: Velocity
-        link: "#hook"
-        tagline: "A responsive website template designed to help startups promote, market and sell their products."
-
-      - title: DevStudio
-        link: "#"
-        tagline: "A responsive website template designed to help web developers/designers market their services."
-
-      - title: Tempo
-        link: "#"
-        tagline: "A responsive website template designed to help startups promote their products or services and to attract users &amp; investors"
-
-      - title: Atom
-        link: "#"
-        tagline: "A comprehensive website template solution for startups/developers to market their mobile apps."
-
-      - title: Delta
-        link: "#"
-        tagline: "A responsive Bootstrap one page theme designed to help app developers promote their mobile apps"
-
-publications:
-    title: Publications
-    intro: |
-      
-
-    papers:
-      - title: "Sharing Matters for Generalization in Deep Metric Learning"
-        authors: T. Milbich*, K. Roth*, B. Brattoli, B. Ommer
-        conference: tPAMI, 2020
-        
-      - title: "Rethinking Zero-shot Video Classification: End-to-end Training for Realistic Applications"
-        authors: B. Brattoli, J. Tighe, F. Zhdanov, P. Perona, K. Chalupka
-        conference: CVPR, 2020
-        
-      - title: "MIC: Mining Interclass Characteristics for Improved Metric Learning"
-        authors: B. Brattoli*, K. Roth*, B. Ommer
-        conference: ICCV, 2019
-
-      - title: "Improving Spatiotemporal Self-Supervision by Deep Reinforcement Learning"
-        authors: B. Brattoli*, U. Buechler*, B. Ommer
-        conference: ECCV, 2018
-
-      - title: "LSTM Self-Supervision for Detailed Behavior Analysis"
-        authors: B. Brattoli*, U. Buechler*, A. Wahl, M. Schwab, B. Ommer
-        conference: CVPR, 2017
-
-      - title: "Cross and Learn: Cross-Modal Self-Supervision"
-        authors: N. Sayer, B. Brattoli, B. Ommer
-        conference: oral at GCPR, 2018
-
-      - title: "X-GAN: Improving Generative Adversarial Networks with ConveX Combinations"
-        authors: O. Blum, B. Brattoli, B. Ommer
-        conference: oral at GCPR, 2018
-
-      - title: "Optogenetically stimulating intact rat corticospinal tract post-stroke restores motor control through regionalized functional circuit formation"
-        authors: A. S. Wahl*, U. Büchler*, A. Brändli, B. Brattoli, S. Musall, H. Kasper, B. V. Ineichen, F. Helmchen, B. Ommer & M. E. Schwab
-        conference: "Nature Communications, 2017"
-        
-      - title: "Early reduced behavioral activity induced by large strokes affects the efficiency of enriched environment in rats"
-        authors: A. S. Wahl, Erlebach, E, B. Brattoli, U. Büchler, J. Kaiser, V.B. Ineichen, A.C. Mosberger, S. Schneeberger, S. Imobersteg, M. Wieckhorst, M. Stirn, A. Schroeter, B. Ommer, M.E. Schwab
-        conference: "Journal of Cerebral Blood Flow & Metabolism, 2018"
 
 skills:
     title: Skills &amp; Proficiency
@@ -227,6 +138,3 @@ skills:
 
       - name: C/C++
         level: 75%
-
-footer: >
-    Designed with <i class="fas fa-heart"></i> by <a href="http://themes.3rdwavemedia.com" target="_blank" rel="nofollow">Xiaoying Riley</a>
