@@ -112,7 +112,7 @@ experiences:
         - We reached around 65% accuracy by using BERT model.
 
     - role: MIS
-      time: 2017 - Present
+      time: 2019 - Present
       company: NCTU
       details: |
         - Use Django MVC Framework to increase maintenance efficiency.
