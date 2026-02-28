@@ -1,6 +1,6 @@
 /** @type {import("pliny/config").PlinyConfig } */
 const siteMetadata = {
-  title: 'Shao Chen | Tech Blog',
+  title: 'Shao Chen | 技術筆記',
   author: 'Shao Chen',
   headerTitle: 'Shao Chen',
   description: '紀錄 Backend、SRE、HomeLab 系統架構與自動化開發筆記。',
