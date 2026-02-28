@@ -1,8 +1,6 @@
 {
-  "multi-author": 1,
-  "next-js": 1,
-  "feature": 1,
-  "markdown": 1,
-  "code": 1,
-  "features": 1
+  "kafka": 1,
+  "message-queue": 1,
+  "backend": 1,
+  "architecture": 1
 }
