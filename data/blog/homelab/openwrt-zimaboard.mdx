@@ -1,0 +1,168 @@
+---
+title: '[實戰] ZimaBoard 216 軟路由終極改造：OpenWrt 25.12 擴容、台灣極速源與 AdGuard 完美避坑指南'
+date: '2026-03-10'
+tags: ['OpenWrt', 'ZimaBoard', 'AdGuard Home', '軟路由', 'Networking', 'Linux']
+draft: false
+summary: 'ZimaBoard 216 裸機刷入 OpenWrt 25.12 (APK版) 全紀錄。解決預設 100MB 空間限制、套件下載憑證報錯，以及 AdGuard Home 與 dnsmasq 的 Port 53 衝突，打造滿血全域擋廣告路由器。'
+images: []
+authors: ['default']
+layout: PostLayout
+---
+
+## 📌 前言與架構考量
+
+ZimaBoard 216 搭載 Celeron N3350 與雙網路孔，擁有強大的 x86 擴充性，是做為家庭網路核心的絕佳硬體。但在 2GB 記憶體的硬傷下，若強行運行 PVE 等虛擬化系統來跑 All-in-One，光是底層就會吃掉大半資源。因此，**直接裸機 (Bare Metal) 刷入官方原版 OpenWrt，是榨乾這台機器的最佳解法**。
+
+但當你滿懷期待刷入最新的 OpenWrt 25.12 快照版 (Snapshot) 後，馬上就會面臨三大挑戰：
+
+1. **套件龜速與報錯**：官方源在海外，且剛刷好的機器常因系統時間與憑證問題，導致 `apk update` 瘋狂報錯。
+2. **空間封印**：預設只分配約 100MB，浪費了內建的 16GB eMMC 大空間。
+3. **Port 53 衝突與 DHCP 陷阱**：想裝 AdGuard Home 擋廣告，卻常常引發系統 DNS 崩潰斷網，或是手機 Wi-Fi 無法自動連線。
+
+這篇文章將帶你一步步破解上述所有陷阱，將這台機器打造成效能滿血、全域擋廣告的完美家庭網路核心。
+
+---
+
+## 🚀 階段一：打通網路任督二脈與切換台灣極速源
+
+剛刷好的系統，常因為系統時間停留在 1970 年，導致 HTTPS 憑證失效而無法下載套件。我們必須先校正時間，並將軟體源切換至台灣的 TWDS 鏡像站。
+
+**1. 手動校正系統時間 (突破 SSL 憑證阻擋)**
+透過 SSH 進入路由器 (`192.168.1.1`)，強制對齊現在時間：
+
+```bash
+date -s "2026-03-10 15:00:00"
+```
+
+**2. 切換 TWDS 台灣鏡像站與補齊工具**
+將官方源無縫替換為台灣數位串流 (TWDS) 鏡像站，享受秒殺級下載速度，並補齊後續擴容需要的核心工具：
+
+```bash
+sed -i 's|[https://downloads.openwrt.org](https://downloads.openwrt.org)|[https://mirror.twds.com.tw/openwrt](https://mirror.twds.com.tw/openwrt)|g' /etc/apk/repositories /etc/apk/repositories.d/*.list 2>/dev/null
+
+apk update
+apk add ca-bundle parted losetup resize2fs curl
+```
+
+## 👻 階段二：修復 GPT 表頭與超度「幽靈分區」
+
+這是擴充空間最常遇到 Can't have overlapping partitions 錯誤的元兇。如果你曾重置過系統或刷過其他 OS，硬碟尾端通常會殘留舊的自訂分區。
+
+1. 進入 parted 檢查實體分區表：
+
+```bash
+parted /dev/mmcblk0 print
+```
+
+⚠️ 避坑點 1：修復表頭
+如果系統跳出警告 Warning: Not all of the space available... Fix/Ignore?，請務必輸入 Fix 自動修復。
+
+⚠️ 避坑點 2：刪除殘留分區
+觀察印出的分區表，若看到 Number 3（通常佔據約 15GB），這就是遺留的幽靈分區，請手動刪除：
+
+```bash
+parted /dev/mmcblk0 rm 3
+```
+
+(註：Number 128 bios_grub 或 Number 1 legacy_boot 為系統保留，請勿更動)
+
+## 💽 階段三：線上擴容實戰 (免重開機)
+
+前方的路障清空後，依序執行「擴容三部曲」，將系統空間徹底解放：
+
+```bash
+# 1. 拉長實體分區：將主分區擴展到硬碟 100% 極限
+parted -s /dev/mmcblk0 resizepart 2 100%
+
+# 2. 更新虛擬設備：通知 Linux 核心容量已改變
+losetup -c /dev/loop0
+
+# 3. 擴展檔案系統：正式納入新空間
+resize2fs /dev/loop0
+
+# 4. 驗證戰果 (可用空間應暴增為 14GB ~ 15GB)
+df -h /overlay
+```
+
+## 🎨 階段四：Argon 主題美化與中文化
+
+💡 進階踩坑筆記： 新版 OpenWrt 25.12 已全面轉換為 Alpine Linux 的 .apk 架構，千萬別再嘗試安裝舊版的 .ipk！此外，直接用 wget 下載 GitHub 檔案常會因為 CDN 重新導向變成亂碼檔名，必須改用 curl -L -o。
+
+下載原生 APK 檔案並強制安裝：
+
+```bash
+curl -L -o luci-theme-argon.apk [https://github.com/jerrykuku/luci-theme-argon/releases/download/v2.3.2/luci-theme-argon_2.3.2-r20250207_all.apk](https://github.com/jerrykuku/luci-theme-argon/releases/download/v2.3.2/luci-theme-argon_2.3.2-r20250207_all.apk)
+curl -L -o luci-app-argon-config.apk [https://github.com/jerrykuku/luci-app-argon-config/releases/download/v0.9/luci-app-argon-config_0.9_all.apk](https://github.com/jerrykuku/luci-app-argon-config/releases/download/v0.9/luci-app-argon-config_0.9_all.apk)
+
+apk add --allow-untrusted ./luci-theme-argon.apk
+apk add --allow-untrusted ./luci-app-argon-config.apk
+apk add luci-i18n-base-zh-tw
+```
+
+安裝完畢後，進入網頁後台的 System -> System -> Language and Style，將語言改為繁體中文，主題切換為 Argon，即可享受高顏值的現代化介面。
+
+## 🛡️ 階段五：無痛部署 AdGuard Home 與移交 Port 53
+
+這是全網最多人翻車的地方！如果直接把內建的 dnsmasq 移走，路由器會瞬間失去解析能力。我們採用「先佔位、再移交」的黃金順序。
+
+1. 安裝、啟動與暫時避開 Port 53
+
+```bash
+apk add adguardhome
+/etc/init.d/adguardhome enable
+/etc/init.d/adguardhome start
+```
+
+打開瀏覽器進入 http://192.168.1.1:3000 進行初始設定。將「網頁管理介面」設為 3000 埠，並將「DNS 伺服器監聽埠」暫時改為 5300，完成安裝精靈。
+
+2. 終極避坑：透過 SSH 強制 AdGuard Home 接管 Port 53
+   AdGuard Home 網頁後台無法修改已設定的 DNS 埠。我們必須回到 SSH 終端機，強制修改設定檔並重啟服務：
+
+```bash
+sed -i 's/port: 5300/port: 53/g' /etc/adguardhome.yaml
+/etc/init.d/adguardhome restart
+```
+
+## 🚦 階段六：解決手機無法連網的 DHCP 與 IPv6 陷阱
+
+完成上述設定後，你可能會發現：手機手動設定 DNS 為 192.168.1.1 可以上網，但自動取得 Wi-Fi 卻連不上？
+這是因為 OpenWrt 的 DHCP 尚未強制綁定新 DNS，且現代手機會優先偷跑 IPv6 導致攔截失敗。我們直接在 LuCI 網頁後台解決：
+
+讓 dnsmasq 退居二線 (5353 埠)：
+
+進入 網路 -> DHCP 及 DNS -> 進階設定。
+
+將 DNS 伺服器通訊埠 改為 5353。
+
+切換到 解析檔與主機名 標籤，勾選 忽略解析檔。
+
+強制推播 Option 6 (綁定 AdGuard Home)：
+
+進入 網路 -> 介面 -> 找到 LAN 點擊修改。
+
+往下找到 DHCP 伺服器 區塊 -> 進階設定。
+
+在 DHCP 選項 輸入 6,192.168.1.1，按下 Enter 新增。
+
+關閉 IPv6 干擾：
+
+留在 LAN 的修改頁面，切換到 IPv6 設定。
+
+將 路由通告服務、DHCPv6 服務、NDP 代理 全部設為 停用。
+
+點擊 儲存並套用。
+
+👉 最後測試： 將手機 Wi-Fi 關閉，等待 5 秒後再開啟。重新連線後，全家人的流量就會完美經過 AdGuard Home 了！
+
+## ⏳ 階段七：保持滿血的自動重啟排程
+
+為了確保 2GB 記憶體不會因長期的 DNS 過濾與路由運算而耗盡，我們寫入一個排程，讓路由器每天凌晨 4 點 30 分自動無感重啟：
+
+```bash
+echo "30 4 * * * /sbin/reboot" >> /etc/crontabs/root
+/etc/init.d/cron restart
+/etc/init.d/cron enable
+```
+
+結語
+突破套件鎖死、換上台灣極速源、砍掉幽靈分區、升級 Argon 主題，再到無痛部署 AdGuard Home 搶奪 Port 53 控制權並修復 DHCP 問題。這台曾經受限於容量的 ZimaBoard 216，現在已經徹底打通任督二脈。千萬別被軟路由預設的限制給框住，動手改造後，你會發現這片天地有多麼迷人！
