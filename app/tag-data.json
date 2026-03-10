@@ -1,4 +1,10 @@
 {
+  "openwrt": 1,
+  "zimaboard": 1,
+  "adguard-home": 1,
+  "軟路由": 1,
+  "networking": 1,
+  "linux": 1,
   "kafka": 1,
   "message-queue": 1,
   "backend": 1,
