@@ -1,4 +1,10 @@
 {
+  "java": 3,
+  "backend": 4,
+  "effective-java": 3,
+  "design-patterns": 2,
+  "architecture": 2,
+  "table-of-contents": 1,
   "debugging": 1,
   "spring-boot": 1,
   "undertow": 1,
@@ -17,7 +23,5 @@
   "truenas": 1,
   "cloudflare": 1,
   "kafka": 1,
-  "message-queue": 1,
-  "backend": 1,
-  "architecture": 1
+  "message-queue": 1
 }
