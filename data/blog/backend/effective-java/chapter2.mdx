@@ -1,0 +1,372 @@
+---
+title: 'Effective Java 實戰筆記 (一)：物件的建立與銷毀'
+date: '2026-03-14'
+description: '整理了《Effective Java》中關於物件生命週期的 8 個黃金守則，並附上實戰範例。'
+tags: ['Java', 'Backend', 'Effective Java', 'Design Patterns']
+summary: '在 Java 的世界裡，萬物皆物件。'
+---
+
+# Effective Java 實戰筆記 (一)：物件的建立與銷毀
+
+在 Java 的世界裡，萬物皆物件。「怎麼生出物件」跟「怎麼讓物件死得乾淨」，往往決定了你程式的效能與穩定度。這篇文章整理了《Effective Java》中關於物件生命週期的黃金守則，並附上實戰範例。
+
+## 1. 考慮使用靜態工廠方法 (Static Factory Methods) 代替建構子
+
+我們習慣用 `new` 來建立物件，但其實提供一個**靜態工廠方法**往往是更好的選擇。
+
+**優點：**
+
+1. **它有名字**：`new User()` 看不出意圖，但 `User.createAdmin()` 一目了然。
+2. **不需要每次都建立新物件**：可以搭配快取機制（如 `Boolean.valueOf()`）減少記憶體消耗。
+3. **可以回傳子類別**：這讓 API 更有彈性，隱藏具體實作細節。
+
+```java
+public class User {
+    private String name;
+    private String role;
+
+    // 將建構子設為 private，強迫開發者使用靜態工廠方法
+    private User(String name, String role) {
+        this.name = name;
+        this.role = role;
+    }
+
+    // 透過命名清楚表達意圖
+    public static User createGuest() {
+        return new User("Guest", "GUEST_ROLE");
+    }
+
+    public static User createAdmin(String name) {
+        return new User(name, "ADMIN_ROLE");
+    }
+}
+
+// 使用端：
+User guest = User.createGuest();
+```
+
+## 2. 當建構子參數過多時，請使用 Builder 模式
+
+當一個類別有許多建構子參數（特別是有很多選填欄位時），傳統的重載建構子或 JavaBeans 模式都會讓程式碼變得難看且不安全。
+
+**Builder 模式完美結合了建構子的安全性與 setter 的可讀性。**
+
+```java
+public class NutritionFacts {
+    private final int servingSize;  // 必填
+    private final int servings;     // 必填
+    private final int calories;     // 選填
+    private final int sodium;       // 選填
+
+    public static class Builder {
+        // 必填參數
+        private final int servingSize;
+        private final int servings;
+
+        // 選填參數，給定預設值
+        private int calories = 0;
+        private int sodium = 0;
+
+        public Builder(int servingSize, int servings) {
+            this.servingSize = servingSize;
+            this.servings = servings;
+        }
+
+        public Builder calories(int val) {
+            calories = val;
+            return this;
+        }
+
+        public Builder sodium(int val) {
+            sodium = val;
+            return this;
+        }
+
+        public NutritionFacts build() {
+            return new NutritionFacts(this);
+        }
+    }
+
+    private NutritionFacts(Builder builder) {
+        servingSize = builder.servingSize;
+        servings = builder.servings;
+        calories = builder.calories;
+        sodium = builder.sodium;
+    }
+}
+
+// 使用端：可以用流暢的鏈式呼叫 (Fluent API)
+NutritionFacts cocaCola = new NutritionFacts.Builder(240, 8)
+    .calories(100)
+    .sodium(35)
+    .build();
+```
+
+## 3. 用 Enum 或私有建構子來強化 Singleton (單例模式)
+
+在系統開發中，有些物件我們從頭到尾只需要一個實例，例如連接外部硬體的「錄音介面 (Audio Interface)」、系統的全域設定檔，或是資料庫連線池。這種確保類別在系統中「絕對只有一個實例」的設計，就是鼎鼎大名的**單例模式 (Singleton Pattern)**。
+
+最常見的單例實作有兩種：**Public Static Final 欄位** 與 **靜態工廠方法 (`getInstance`)**。
+
+**寫法一：Public Static Final 欄位**
+
+```java
+public class AudioInterface {
+    // 唯一對外開放的實例
+    public static final AudioInterface INSTANCE = new AudioInterface();
+
+    // 封印建構子
+    private AudioInterface() {
+        System.out.println("正在連接硬體設備...");
+    }
+
+    public void play(String track) {
+        System.out.println("Playing: " + track);
+    }
+}
+```
+
+**寫法二：靜態工廠方法**
+
+```java
+public class AudioInterface implements Serializable {
+    private static final AudioInterface INSTANCE = new AudioInterface();
+
+    private AudioInterface() { /* 初始化硬體 */ }
+
+    public static AudioInterface getInstance() {
+        return INSTANCE;
+    }
+}
+```
+
+🚨 **這兩種寫法表面上看起來很安全，但其實破綻百出：**
+
+1. **反射攻擊 (Reflection)：**
+   透過 Java 的反射機制 `AccessibleObject.setAccessible(true)`，駭客或不小心的開發者可以直接無視 private 限制，強行呼叫建構子創造出第二個實例。
+
+   ```java
+   // 取得私有建構子
+   Constructor<?>[] constructors = AudioInterface.class.getDeclaredConstructors();
+   AccessibleObject.setAccessible(constructors, true); // 強行打開存取權限！
+
+   // 恭喜，你創造了第二個錄音介面實例，硬體可能要打架了
+   AudioInterface hackedInstance = (AudioInterface) constructors[0].newInstance();
+   ```
+
+2. **序列化破解 (Serialization)：**
+   當物件實作了 `Serializable`，在進行反序列化（或是執行 `clone()`）時，Java 底層會悄悄幫你產生一個全新的實例，徹底破壞單例的保證。
+
+🛡️ **傳統防禦對策：防禦式開發與極高的維護代價**
+
+為了防堵反射攻擊，我們必須在建構子內寫死檢查邏輯：
+
+```java
+private AudioInterface() {
+    if (INSTANCE != null) {
+        throw new IllegalStateException("INSTANCE 已經存在，禁止透過反射重複建立！");
+    }
+    System.out.println("正在連接硬體設備...");
+}
+```
+
+> **防禦代價極高**：這還沒完！為了解決序列化的漏洞，你還必須覆寫 `readResolve()` 與 `clone()` 方法。這會讓一個原本功能簡單的類別，塞滿了與商業邏輯無關的防禦性程式碼，變得極度臃腫。
+
+✅ **終極完美方案：使用 Enum (列舉)**
+
+《Effective Java》作者強烈建議：**實作 Singleton 最好的方法就是直接使用 Enum。**
+
+```java
+public enum AudioInterface {
+    INSTANCE; // 唯一實例
+
+    public void play(String track) {
+        System.out.println("Playing: " + track);
+    }
+}
+
+// 使用端呼叫：
+// AudioInterface.INSTANCE.play("Jazz Fusion Backing Track");
+```
+
+> 💡 **Tip:** 只要短短幾行程式碼，就完美免疫了反射與序列化的攻擊，這才是現代 Java 開發中最優雅的 Singleton 實作方式！
+
+## 4. 透過私有建構子來防止類別被實例化
+
+如果你有使用 SonarQube 的話，對這個警告應該不陌生。
+
+有些類別只是用來裝靜態方法（Static methods）跟常數的（例如工具類別 Utility Class）。這些類別本來就不應該被實例化。
+
+✅ **解決方案：加入一個私有建構子，並拋出例外。**
+
+```java
+public class StringUtils {
+    // 抑制預設的無參數建構子，防止被實例化
+    private StringUtils() {
+        throw new AssertionError("This is a utility class and cannot be instantiated");
+    }
+
+    public static boolean isEmpty(String str) {
+        return str == null || str.trim().isEmpty();
+    }
+}
+```
+
+## 5. 優先考慮依賴注入 (Dependency Injection) 而非硬綁定資源
+
+前面提到我們可以利用 Singleton 或 Static Utility 來設計物件。但如果你的類別**需要依賴底層的外部資源**，硬梆梆地把資源綁死在類別裡，絕對是個災難。
+
+❌ **錯誤示範：被綁死的信用卡驗證器**
+假設我們寫了一個工具類別來驗證信用卡，裡面直接把驗證邏輯寫死為 `VisaCard`：
+
+```java
+public class CreditCardValidator {
+    // 慘了！寫死只能驗證 Visa
+    private static final CreditCard creditCard = new VisaCard();
+
+    private CreditCardValidator() {
+        throw new IllegalStateException("Utility class");
+    }
+
+    public static boolean isValid(String cardNumber) {
+        return creditCard.verify(cardNumber);
+    }
+}
+```
+
+萬一明天老闆說：「我們也要支援 JCB 和 MasterCard 驗證！」這時候你就傻眼了，因為 Singleton 和靜態類別缺乏彈性，也無法在單元測試中輕易替換成 Mock 物件。
+
+✅ **正確寫法：透過建構子注入依賴**
+我們應該把依賴的資源，透過建構子「注入 (Inject)」進來。這種做法極大地提升了靈活性、可重用性與可測試性：
+
+```java
+public class CreditCardValidator {
+    private final CreditCard creditCard;
+
+    // 將依賴的資源透過建構子傳遞進來
+    public CreditCardValidator(CreditCard creditCard) {
+        this.creditCard = Objects.requireNonNull(creditCard);
+    }
+
+    public boolean isValid(String cardNumber) {
+        return creditCard.verify(cardNumber);
+    }
+}
+
+// 使用端：想驗證什麼卡，就傳什麼實例進去
+CreditCardValidator visaValidator = new CreditCardValidator(new VisaCard());
+CreditCardValidator jcbValidator = new CreditCardValidator(new JcbCard());
+```
+
+> 現代開發中，像 Spring、Dagger 或是 Guice 這類框架，就是在幫我們自動化處理這套優雅的「依賴注入」流程。
+
+## 6. 避免建立不必要的物件
+
+這點直接攸關效能。能重複使用的不可變物件就不要重新建立。
+
+❌ **地雷一：字串的不當建立**
+
+```java
+// 絕對不要這樣寫！這會每次都建立一個新的 String 實例
+String s = new String("stringette");
+
+// 這樣寫就好，Java 的字串池 (String Pool) 會幫你重複利用
+String s = "stringette";
+```
+
+❌ **地雷二：無意間的自動裝箱 (Autoboxing)**
+注意基本型別 (`int`, `long`) 與包裝型別 (`Integer`, `Long`) 的混用。
+
+```java
+// 找找看效能瓶頸在哪？
+Long sum = 0L; // 這裡宣告了包裝型別 Long
+for (long i = 0; i <= Integer.MAX_VALUE; i++) {
+    sum += i;  // 慘烈！每次迴圈都在產生一個新的 Long 物件
+}
+```
+
+> 💡 **Note:** 只要把 `Long sum` 改成 `long sum`，就能避開無謂的物件創建，讓執行速度大幅提升。
+
+## 7. 消除過期的物件參考 (小心 Memory Leak!)
+
+如果你自己管理記憶體（例如實作 Stack、Cache），一定要手動清掉不要的參考。
+
+❌ **一個會漏記憶體的 Stack**
+
+```java
+public class Stack {
+    private Object[] elements;
+    private int size = 0;
+
+    // ... 省略 push 實作 ...
+
+    public Object pop() {
+        if (size == 0) throw new EmptyStackException();
+        // 嚴重問題：被 pop 出來的物件依然留在 elements 陣列裡
+        return elements[--size];
+    }
+}
+```
+
+✅ **正確修復：將參考設為 null**
+
+```java
+    public Object pop() {
+        if (size == 0) throw new EmptyStackException();
+        Object result = elements[--size];
+        elements[size] = null; // 手動消除過期參考，放行讓 GC 回收
+        return result;
+    }
+```
+
+## 8. 資源釋放的最佳實踐：拒絕 Finalizer，擁抱 try-with-resources
+
+在 Java 裡，有許多資源用完後是必須手動呼叫 `close()` 關閉的（例如讀寫檔案的 `InputStream`、資料庫連線等）。如果忘記關閉，就會造成嚴重的記憶體洩漏。
+
+🚫 **絕對不要依賴 Finalizer 或 Cleaner**
+有些人會想把關閉資源的邏輯寫在 `finalize()` 裡，期待垃圾回收器 (GC) 幫忙收尾。這是極度危險的！因為 GC 什麼時候執行是未知的，甚至可能到程式結束前都沒執行。這會導致系統資源被無聲無息地耗盡。
+
+❌ **噩夢般的 try-finally 巢狀地獄**
+既然不能靠 GC，那我們手動在 `finally` 區塊關閉總可以了吧？在早期的 Java 版本這是標準做法，但只要牽涉到**兩個以上的資源**，程式碼就會變得無比醜陋：
+
+```java
+protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    InputStream in = this.getServletContext().getResourceAsStream("/WEB-INF/data.txt");
+    OutputStream out = response.getOutputStream();
+
+    try {
+        try {
+            byte[] data = new byte[1024];
+            int length = -1;
+            while ((length = in.read(data)) != -1) {
+                out.write(data, 0, length);
+            }
+        } finally {
+            out.close(); // 關閉第一個資源
+        }
+    } finally {
+        in.close(); // 關閉第二個資源
+    }
+}
+```
+
+✅ **終極解法：try-with-resources (Java 7+)**
+只要你的資源有實作 `AutoCloseable` 介面，就可以直接使用 `try-with-resources`。語法不僅短小精悍，而且會**保證**幫你乾淨地關閉所有資源：
+
+```java
+protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+
+    // 將資源直接宣告在 try 的括號內
+    try (
+        InputStream in = this.getServletContext().getResourceAsStream("/WEB-INF/data.txt");
+        OutputStream out = response.getOutputStream()
+    ) {
+        byte[] data = new byte[1024];
+        int length = -1;
+        while ((length = in.read(data)) != -1) {
+            out.write(data, 0, length);
+        }
+        // 不需要寫 finally！括號結束時，Java 會自動依序幫你呼叫 in.close() 與 out.close()
+    }
+}
+```
