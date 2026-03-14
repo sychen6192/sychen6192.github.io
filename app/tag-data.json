@@ -1,12 +1,23 @@
 {
+  "kafka": 1,
+  "message-queue": 1,
+  "backend": 1,
+  "architecture": 1,
+  "debugging": 1,
+  "spring-boot": 1,
+  "undertow": 1,
+  "istio": 1,
+  "dynatrace": 1,
+  "microservices": 1,
+  "homelab": 1,
+  "network": 1,
+  "docker": 1,
+  "truenas": 1,
+  "cloudflare": 1,
   "openwrt": 1,
   "zimaboard": 1,
   "adguard-home": 1,
   "軟路由": 1,
   "networking": 1,
-  "linux": 1,
-  "kafka": 1,
-  "message-queue": 1,
-  "backend": 1,
-  "architecture": 1
+  "linux": 1
 }
