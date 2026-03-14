@@ -1,0 +1,376 @@
+---
+title: 'Effective Java 實戰筆記：類別與介面的設計美學'
+date: '2026-03-14'
+description: '繼承真的這麼好用嗎？為什麼大家都說要多用合成？這篇文章將帶你探討 Effective Java 中關於類別與介面的設計準則。'
+tags: ['Java', 'Backend', 'Effective Java', 'Design Patterns', 'Architecture']
+summary: '類別與介面是 Java 系統架構的基石，良好的設計能讓程式碼保持彈性與高內聚力。'
+---
+
+# Effective Java 實戰筆記：類別與介面的設計美學
+
+類別與介面是 Java 系統架構的基石。在這個章節中，Joshua Bloch 傳授了許多關於封裝、繼承與介面設計的黃金守則。你會發現，許多我們初學時習以為常的物件導向習慣（例如無腦使用繼承），其實在大型專案中可能會成為災難。
+
+這篇文章整理了《Effective Java》中關於類別與介面的核心精華，並附上具體的實戰範例。
+
+## 1. 最小化類別與成員的存取權限 (Encapsulation)
+
+封裝 (Encapsulation) 是軟體設計的靈魂。一個設計良好的模組會把實作細節隱藏起來，只對外暴露必要的 API，降低系統各模組之間的耦合度。
+
+**原則：**
+
+- 盡可能讓每個類別或成員的存取層級降到最低（例如預設使用 `private` 或 `package-private`）。
+- **實體欄位 (Instance fields) 永遠不該是 public 的**。如果類別要對外公開，請絕對使用 getter/setter 存取子。
+
+❌ **錯誤示範：暴露內部結構**
+
+```java
+public class WaferLot {
+    // 絕對不要這樣做！失去了封裝性，外部可以隨意竄改甚至引發 Thread-safe 問題
+    public String lotId;
+    public int yieldRate;
+}
+```
+
+✅ **正確寫法：使用私有欄位與存取子**
+
+```java
+public class WaferLot {
+    private String lotId;
+    private int yieldRate;
+
+    public WaferLot(String lotId, int yieldRate) {
+        this.lotId = lotId;
+        this.yieldRate = yieldRate;
+    }
+
+    public String getLotId() { return lotId; }
+
+    // 可以在 setter 中加入邏輯驗證，確保內部狀態的一致性
+    public void setYieldRate(int yieldRate) {
+        if (yieldRate < 0 || yieldRate > 100) throw new IllegalArgumentException();
+        this.yieldRate = yieldRate;
+    }
+}
+```
+
+## 2. 盡可能讓類別不可變 (Minimize Mutability)
+
+不可變物件 (Immutable Object) 是指在建立之後，狀態就永遠不會改變的物件。它們本質上就是**執行緒安全 (Thread-safe)** 的，不需要同步鎖定就能讓多個執行緒自由共享。
+
+**如何打造不可變類別？**
+
+1. 不提供任何修改狀態的方法 (No mutators/setters)。
+2. 保證類別不能被擴充 (例如聲明為 `final`)。
+3. 所有的欄位都聲明為 `final` 與 `private`。
+
+**實戰範例：**
+假設我們撰寫一套 Playwright 自動化腳本來買 Billboard Live 的演唱會門票，每一張搶到的票都應該是不可變的：
+
+```java
+// 加上 final 避免被子類別繼承破壞
+public final class ConcertTicket {
+    private final String bandName;
+    private final String seat;
+
+    public ConcertTicket(String bandName, String seat) {
+        this.bandName = bandName;
+        this.seat = seat;
+    }
+
+    public String getBandName() { return bandName; }
+    public String getSeat() { return seat; }
+
+    // 如果需要「修改」，則是回傳一個「全新」的實例，而不是變動原本的物件
+    public ConcertTicket upgradeSeat(String newSeat) {
+        return new ConcertTicket(this.bandName, newSeat);
+    }
+}
+```
+
+> 💡 **Tip:** 除非有強烈的效能考量或框架要求，否則所有的類別都應該盡可能設計成不可變的！
+
+## 3. 多用合成 (Composition)，少用繼承 (Inheritance)
+
+在物件導向的世界裡，繼承 (`extends`) 雖然是個強大的武器，但它卻會**嚴重破壞封裝性**。
+
+當你繼承一個具體類別時，子類別會變得極度依賴父類別的「內部實作細節」。只要父類別在未來的版本中稍微修改了底層邏輯，或者新增了某些方法，子類別可能就會在毫無預警的情況下崩潰（這被稱為 Fragility 脆弱性）。
+
+### ❌ 繼承的恐怖踩坑現場：被重複計算的集合
+
+假設我們正在開發一個個人攝影作品集的後台，我們想自訂一個 `HashSet`，用來記錄「這個相簿從建立以來，總共被加入過多少張照片」。
+
+直覺上，我們可能會直接繼承 `HashSet` 並覆寫它的方法：
+
+```java
+// 錯誤示範：直接繼承 HashSet
+public class InstrumentedPhotoSet<E> extends HashSet<E> {
+    private int addCount = 0;
+
+    public InstrumentedPhotoSet() {}
+
+    @Override
+    public boolean add(E e) {
+        addCount++;
+        return super.add(e);
+    }
+
+    @Override
+    public boolean addAll(Collection<? extends E> c) {
+        addCount += c.size();
+        return super.addAll(c); // 這裡藏著致命危機！
+    }
+
+    public int getAddCount() {
+        return addCount;
+    }
+}
+```
+
+看起來無懈可擊對吧？現在我們試著一次加入 3 張 Fujifilm X-T50 拍出來的照片：
+
+```java
+InstrumentedPhotoSet<String> photos = new InstrumentedPhotoSet<>();
+photos.addAll(Arrays.asList("富士街拍_01.jpg", "富士街拍_02.jpg", "富士街拍_03.jpg"));
+
+System.out.println(photos.getAddCount()); // 你以為會印出 3，但結果居然是 6！
+```
+
+**為什麼結果是 6？**
+因為在 Java 底層的 `HashSet` 實作中，`addAll()` 方法其實是透過迴圈去呼叫 `add()` 的！所以當你呼叫 `super.addAll(c)` 時，它除了在你的 `addAll` 裡把 `addCount` 加了 3，還會跑到父類別的邏輯裡，又觸發了 3 次你覆寫的 `add()`，導致重複計算。
+
+這就是繼承最可怕的地方：**你必須對父類別的內部實作暸若指掌，否則隨時會踩雷。**
+
+---
+
+### ✅ 救星來了：合成 (Composition) 與轉發 (Forwarding)
+
+為了解決這個問題，我們應該揚棄繼承，改用**合成 (Composition)** 與 **Wrapper 類別 (Decorator 模式)**。
+
+與其直接 `extends`，不如在類別內部「包含 (compose)」一個現有類別的實例，並將所有的操作「轉發 (forward)」給它。
+
+```java
+// 正確寫法：實作 Set 介面，並在內部「合成」一個 Set
+public class InstrumentedPhotoSet<E> implements Set<E> {
+    private int addCount = 0;
+
+    // 這裡就是「合成 (Composition)」：把別人當成自己的一個小零件
+    private final Set<E> s;
+
+    public InstrumentedPhotoSet(Set<E> s) {
+        this.s = s;
+    }
+
+    // 我們不再依賴 super，而是把工作「轉發 (forward)」給內部的 set
+    @Override
+    public boolean add(E e) {
+        addCount++;
+        return s.add(e);
+    }
+
+    @Override
+    public boolean addAll(Collection<? extends E> c) {
+        addCount += c.size();
+        return s.addAll(c); // 這裡不再會有重複計算的問題！
+    }
+
+    public int getAddCount() {
+        return addCount;
+    }
+
+    // ... 其餘 Set 介面的方法，全部單純轉發給 s (例如 return s.size();)
+}
+```
+
+**這樣寫的巨大優勢：**
+
+1. **絕對安全**：我們不再關心底層的 `Set` 是怎麼實作 `addAll` 的，我們只管攔截並加上自己的邏輯，剩下的都交給原廠方法處理。
+2. **極致的彈性**：你可以傳入任何 `Set` 的實作！無論是 `HashSet`、`TreeSet` 還是多執行緒安全的 `ConcurrentSkipListSet`，這個 Wrapper 都能完美包裝它們。
+
+> 💡 **總結法則：** 只有當兩個類別之間存在真正的 `is-a`（A 是一種 B）關係時，才應該使用繼承。否則，請一律優先考慮**合成 (Composition)**！
+
+## 4. 設計可繼承的類別，否則就禁止繼承
+
+如果你決定不聽上一條的勸告，堅持要開放類別讓別人繼承，那麼你必須負起極大的責任：**你要公開並文件化類別的內部行為細節**。
+
+**地雷一：自我使用 (Self-use) 未標示清楚**
+如果你的類別內部方法會互相呼叫，且這些方法可以被覆寫，你必須在文件中（如 Java 8 引入的 `@implSpec` 標籤）寫清楚呼叫順序與邏輯。否則繼承者改了 A 方法，卻連帶把 B 方法搞壞，會引發無法預測的災難。
+
+**地雷二：在建構子裡呼叫可覆寫的方法**
+這是一個極度常見且致命的錯誤。**建構子絕對不能呼叫可被覆寫的方法！**
+
+❌ **致命的踩坑現場：未初始化的 Bass 效果器**
+假設我們設計了一個貝斯效果器的父類別，並在建構子中觸發了效果：
+
+```java
+public class AudioEffectPedal {
+    public AudioEffectPedal() {
+        // 絕對不要在建構子呼叫可覆寫的方法！
+        applyEffect();
+    }
+
+    public void applyEffect() { }
+}
+```
+
+接著，我們寫了一個專屬的子類別：
+
+```java
+public class BassFuzzPedal extends AudioEffectPedal {
+    private final String fuzzType;
+
+    public BassFuzzPedal() {
+        // 父類別的建構子會先執行，此時這行根本還沒跑！
+        fuzzType = "Vintage Germanium";
+    }
+
+    @Override
+    public void applyEffect() {
+        // 第一次被父類別建構子呼叫時，fuzzType 會是 null！
+        System.out.println("Applying Fuzz: " + fuzzType.toUpperCase());
+    }
+}
+```
+
+當你 `new BassFuzzPedal()` 時，預期會印出效果名稱，但結果卻是直接噴出 `NullPointerException`！因為父類別的建構子執行時，子類別的 `fuzzType` 根本還沒被初始化。
+
+> 💡 **防禦法則：**
+> 如果類別需要實作 `Cloneable` 或 `Serializable`，`clone()` 與 `readObject()` 的行為等同於建構子，同樣**不可以在裡面呼叫可覆寫的方法**。
+> 最保險的做法：**「沒準備好，就別讓人繼承你的類別！」** 直接把類別宣告為 `final`，或者把建構子設為私有並提供靜態工廠方法。
+
+## 5. 偏好介面 (Interfaces) 而非抽象類別 (Abstract Classes)
+
+Java 只允許單一繼承，但可以實作多個介面。這讓介面成為定義「混合功能 (Mixins)」的完美選擇。現有類別也很容易藉由實作新介面來擴充功能。
+
+例如，我們在建立一個音樂人的類別時，介面能賦予極大的彈性：
+
+```java
+public interface BassPlayer {
+    void slap();
+}
+
+public interface Songwriter {
+    void compose();
+}
+
+// 透過介面，我們可以輕鬆組合不同的能力，而不會受限於單一繼承樹
+public class JazzFusionMusician implements BassPlayer, Songwriter {
+    @Override
+    public void slap() {
+        System.out.println("Slapping the bass on a Bossa Nova groove!");
+    }
+
+    @Override
+    public void compose() {
+        System.out.println("Writing a new fusion jazz track.");
+    }
+}
+```
+
+## 6. 類別階層優於「標籤類別」 (Tagged Classes)
+
+有時候我們會看到一個類別裡面塞滿了 `enum` 標籤跟 `switch` 語句，用來切換不同的行為。這種「標籤類別」非常冗長、浪費記憶體，且極易出錯。
+
+❌ **錯誤示範：標籤類別**
+
+```java
+class CameraLens {
+    enum Type { PRIME, ZOOM };
+    final Type type;
+
+    // 定焦鏡才需要的參數
+    double focalLength;
+
+    // 變焦鏡才需要的參數
+    double minFocalLength;
+    double maxFocalLength;
+
+    // 一大堆建構子跟 switch 語句...
+}
+```
+
+✅ **正確寫法：類別階層 (Class Hierarchy)**
+把共用的行為抽成抽象類別，將不同的「標籤」徹底重構為獨立的子類別。
+
+```java
+abstract class CameraLens {
+    abstract void mount();
+}
+
+class PrimeLens extends CameraLens {
+    final double focalLength;
+    PrimeLens(double focalLength) { this.focalLength = focalLength; }
+    void mount() { /* 掛載定焦鏡的邏輯 */ }
+}
+
+class ZoomLens extends CameraLens {
+    final double minFocalLength;
+    final double maxFocalLength;
+    ZoomLens(double min, double max) { ... }
+    void mount() { /* 掛載變焦鏡的邏輯 */ }
+}
+```
+
+## 7. 優先考慮靜態成員類別 (Static Member Classes)
+
+如果你需要在類別內部定義一個巢狀類別（Nested Class），請牢記一個大原則：**如果它不需要存取外部類別的實例，請務必加上 `static` 宣告！**
+
+非靜態的內部類別（Nonstatic member class）會在底層隱藏一個指向外部類別的參考 (Reference)。這不但浪費記憶體與創建時間，如果外部物件已經不再使用，但內部物件還被引用著，就會導致外部物件無法被垃圾回收 (GC)，成為潛在的 Memory Leak 殺手。
+
+```java
+public class Calculator {
+    // 沒有需要用到 Calculator 實體的變數或方法，果斷加上 static！
+    public static enum Operation {
+        PLUS, MINUS, MULTIPLY, DIVIDE
+    }
+}
+```
+
+## 8. 謹慎設計介面，預防 Default Method 的陷阱
+
+自從 Java 8 引入了 `default method`（預設方法）後，我們終於可以在不破壞現有實作的情況下，為介面擴充新功能。但這個看似美好的機制，其實潛藏著極大的相容性風險。
+
+**預設方法不是萬靈丹**
+當你在介面中新增一個 `default method` 時，舊有的實作類別根本不知道這個新方法的存在，也沒準備好要處理它。這很容易導致在執行期發生無法預期的錯誤。
+
+❌ **踩坑現場：Apache Commons 的同步容器災難**
+Java 8 在 `Collection` 介面中新增了 `removeIf()` 的預設方法，底層實作是單純透過 `iterator.remove()` 去刪除元素。
+然而，Apache Commons 提供的 `SynchronizedCollection`（一個利用內部鎖來保證執行緒安全的容器）並沒有覆寫這個新方法。結果就是，當開發者呼叫 `removeIf()` 時，它直接繼承了**沒有任何同步保護**的預設實作！
+如果在多執行緒環境下使用，輕則拋出 `ConcurrentModificationException`，重則導致資料徹底錯亂。
+
+> 💡 **防禦法則：**
+>
+> - **介面一釋出，後悔都來不及**：新增 `default method` 就像在運作中的系統動手術，一定要確保現有實作的行為不會被破壞。
+> - 在設計新介面時，請依然保持嚴謹，多寫幾個不同的實作來驗證，不要把 `default method` 當成事後彌補設計缺陷的藉口。
+
+## 9. 介面只用來定義型別，拒絕「常數介面」反模式
+
+介面 (Interface) 的本質，是用來定義「這個物件可以做什麼行為」。但有時候，我們會看到開發者為了貪圖方便，把介面當成了「常數倉庫」，這被稱為**常數介面反模式 (Constant Interface Antipattern)**。
+
+❌ **錯誤示範：常數介面反模式**
+
+```java
+// 絕對不要這樣做！介面不是拿來存常數的
+public interface PhysicalConstants {
+    static final double AVOGADROS_NUMBER = 6.022_140_857e23;
+    static final double BOLTZMANN_CONSTANT = 1.380_648_52e-23;
+    static final double ELECTRON_MASS = 9.109_383_56e-31;
+}
+```
+
+為什麼這樣寫很糟？因為當別的類別為了使用這些常數而去 `implements PhysicalConstants` 時，這些「僅供內部使用的常數」就會被迫暴露到該類別的對外 API 中。
+這不僅污染了類別的介面，未來如果不再需要這些常數，你也無法輕易拔除這個 `implements`，否則會破壞系統相容性。
+
+✅ **正確寫法：使用不可實例化的工具類別 (Utility Class)**
+如果你真的需要共用一組常數，請把它們放在一個無法被實例化的工具類別，或是 `enum` 中：
+
+```java
+public class PhysicalConstants {
+    private PhysicalConstants() {} // 阻止實例化
+
+    public static final double AVOGADROS_NUMBER = 6.022_140_857e23;
+    public static final double BOLTZMANN_CONSTANT = 1.380_648_52e-23;
+    public static final double ELECTRON_MASS = 9.109_383_56e-31;
+}
+```
+
+> 💡 **Tip:** 如果覺得每次呼叫都要打類別名稱很麻煩，善用 Java 的 `import static` 語法，就能像使用全域變數一樣乾淨俐落，又不會破壞物件導向的型別設計！
