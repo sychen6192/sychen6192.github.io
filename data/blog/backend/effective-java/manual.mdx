@@ -1,0 +1,75 @@
+---
+title: 'Effective Java 讀書筆記總目錄'
+date: '2026-03-14'
+description: 'Joshua Bloch 的《Effective Java》是 Java 開發者的必讀聖經。這篇是整個系列讀書筆記的導覽目錄，帶你一步步寫出更強健的程式碼。'
+tags: ['Java', 'Backend', 'Effective Java', 'Table of Contents']
+summary: '78 個讓程式碼更優雅的黃金守則'
+---
+
+歡迎來到我的部落格！有鑒於記憶力實在是越來越差了，決定來認真整理一下讀書心得
+
+---
+
+## 📦 第 2 章：物件的建立與銷毀 (Creating and Destroying Objects)
+
+萬物皆物件，但如何優雅地產生物件與回收記憶體是一門學問。本章探討了何時該用靜態工廠方法、Builder 模式的應用，以及如何避免 Memory Leak。
+
+- [Effective Java 實戰筆記 (一)：物件的建立與銷毀](../chapter2)
+
+## 🧬 第 3 章：所有物件的通用方法 (Methods Common to All Objects)
+
+當我們覆寫 `Object` 類別內建的方法（如 `equals`、`hashCode`、`toString` 與 `clone`）時，有哪些絕對不能違反的合約與地雷。
+
+- [即將推出：所有物件的通用方法]
+
+## 🏗️ 第 4 章：類別與介面 (Classes and Interfaces)
+
+良好的封裝與解耦是軟體架構的靈魂。這章節說明了為何要將類別的不可變性 (Mutability) 降到最低，以及為何應該偏好多用合成 (Composition) 而少用繼承 (Inheritance)。
+
+- [即將推出：類別與介面設計哲學]
+
+## 🗂️ 第 5 章：泛型 (Generics)
+
+泛型能在編譯時期就幫我們捕捉到型別錯誤。了解如何消除未受檢的警告 (unchecked warnings)、為何要偏好 List 而非陣列，以及如何善用萬用字元 (Wildcards) 增加 API 的靈活性。
+
+- [即將推出：泛型的安全與彈性]
+
+## 🏷️ 第 6 章：列舉與註解 (Enums and Annotations)
+
+捨棄傳統的 `int` 常數吧！Java 的 Enum 功能極度強大，不僅型別安全，還能夾帶資料與行為。這章也會介紹標記介面與註解的正確使用時機。
+
+- [即將推出：發揮 Enum 與 Annotation 的強大威力]
+
+## 🛠️ 第 7 章：方法 (Methods)
+
+設計 API 方法時的防禦性思維。包含如何檢查參數有效性、何時該做防禦性拷貝 (Defensive copies)，以及為什麼回傳空的集合永遠比回傳 null 來得好。
+
+- [即將推出：防禦性程式設計與方法簽章設計]
+
+## 💻 第 8 章：一般程式設計 (General Programming)
+
+日常開發的各種最佳實踐：縮小局部變數的作用域、偏好 for-each 迴圈、避免不必要的字串拼接，以及在使用浮點數與基本型別時的注意事項。
+
+- [即將推出：日常開發的最佳實踐]
+
+## ⚠️ 第 9 章：例外處理 (Exceptions)
+
+例外是用來處理「真正的例外狀況」，而不是拿來做流程控制的。這章釐清了 Checked Exception 與 Runtime Exception 的分水嶺，並強調絕對不要把 catch 區塊留空。
+
+- [即將推出：優雅處理系統例外]
+
+## 🔄 第 10 章：併發 (Concurrency)
+
+多執行緒一直是 Java 裡最難搞定的一環。從同步存取共享的可變資料，到使用 Executors 取代傳統的 Threads，帶你避開死鎖與資料不一致的地雷。
+
+- [即將推出：安全駕馭多執行緒與併發]
+
+## 💾 第 11 章：序列化 (Serialization)
+
+實現 `Serializable` 介面雖然簡單，但會大大限制類別未來的演進。這章探討了自訂序列化表單的重要性，以及如何利用 Enum 或序列化代理 (Serialization Proxies) 來保護系統。
+
+- [即將推出：序列化的潛在風險與防禦]
+
+---
+
+_備註：這份筆記是我個人在學習過程中的總結與體會，適合用作日常開發的快速參考指南。如果你對某些觀念想深入探究，強烈建議去翻閱原著書籍！_
