@@ -1,8 +1,8 @@
 /** @type {import("pliny/config").PlinyConfig } */
 const siteMetadata = {
-  title: 'Shao Chen | 技術筆記',
-  author: 'Shao Chen',
-  headerTitle: 'Shao Chen',
+  title: 'Shao | 技術筆記',
+  author: 'Shao',
+  headerTitle: 'Shao',
   description: '紀錄 Backend、SRE、HomeLab 系統架構與自動化開發筆記。',
   language: 'zh-TW',
   theme: 'system', // system, dark or light
@@ -13,7 +13,7 @@ const siteMetadata = {
   email: 'qazxsw9295@gmail.com',
   github: 'https://github.com/sychen6192',
   linkedin: 'https://linkedin.com/in/sychen6192',
-  medium: 'https://medium.com',
+  medium: 'https://medium.com/@sychen6192',
   locale: 'zh-TW',
   // set to true if you want a navbar fixed to the top
   stickyNav: false,

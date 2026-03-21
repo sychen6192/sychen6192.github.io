@@ -1,0 +1,156 @@
+---
+title: 'Effective Java 實戰筆記 (二)：所有物件的通用方法'
+date: '2026-03-21'
+description: '當我們覆寫 Object 類別內建的方法（如 equals、hashCode、toString）時，有哪些絕對不能違反的合約與地雷？'
+tags: ['Java', 'Backend', 'Effective Java', 'Architecture']
+summary: '這些從 Object 繼承來的方法看似簡單，卻是許多隱藏 Bug 的發源地。'
+---
+
+# Effective Java 實戰筆記 (二)：所有物件的通用方法
+
+在 Java 的世界裡，雖然我們能夠自由設計各種業務類別，但所有類別最終都繼承自 `java.lang.Object`。
+
+`Object` 提供了幾個非 final 的方法（`equals`、`hashCode`、`toString`、`clone`），這些方法的設計初衷，就是**「準備讓子類別去覆寫 (Override) 的」**。但覆寫這些方法並不是隨心所欲的，Java 語言規範為它們定下了嚴格的「通用合約」。
+
+如果違反了這些合約，依賴這些方法的類別（例如 `HashMap` 或 `HashSet`）就會發生無法預期的錯誤。這篇文章整理了《Effective Java》第 3 版中關於通用方法的 5 個黃金守則。
+
+## 1. 覆寫 equals 時務必遵守通用約定
+
+覆寫 `equals` 看似簡單，但極易出錯。最安全的做法其實是：**不要覆寫 equals，直接讓類別使用 Object 預設的實作**（也就是比較記憶體位址）。
+
+**什麼時候「不需要」覆寫 equals？**
+
+1. 類別的每個實例本質上都是唯一的（例如 `Thread`）。
+2. 類別不需要提供「邏輯相等 (Logical equality)」的測試功能。
+
+**什麼時候「必須」覆寫 equals？**
+當類別代表某個「值 (Value Class)」時，例如 `String` 或 `Integer`，開發者比較它們時是想知道「值是否相等」，而不是「它們是不是同一個物件」。
+
+### ⚠️ 覆寫 equals 的五大合約
+
+當你決定覆寫 `equals` 時，你必須保證滿足以下五個數學性質：
+
+1. **自反性 (Reflexive)**：`x.equals(x)` 必須為 true。
+2. **對稱性 (Symmetric)**：若 `x.equals(y)` 為 true，則 `y.equals(x)` 也必須為 true。
+3. **遞移性 (Transitive)**：若 `x.equals(y)` 且 `y.equals(z)` 為 true，則 `x.equals(z)` 必須為 true。
+4. **一致性 (Consistent)**：只要物件沒被修改，多次呼叫 `equals` 的結果必須一致。
+5. **非空性 (Non-nullity)**：所有的物件跟 `null` 比較，都必須是 false。
+
+✅ **標準的高品質 equals 寫法範例：**
+
+```java
+public final class PhoneNumber {
+    private final short areaCode, prefix, lineNum;
+
+    public PhoneNumber(int areaCode, int prefix, int lineNum) {
+        this.areaCode = (short) areaCode;
+        this.prefix  = (short) prefix;
+        this.lineNum = (short) lineNum;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        // 1. 檢查是否為同一個物件的參考（效能優化）
+        if (this == o) return true;
+
+        // 2. 檢查型別是否正確（同時防堵 o 為 null 的情況）
+        if (!(o instanceof PhoneNumber)) return false;
+
+        // 3. 轉型為正確的型別
+        PhoneNumber pn = (PhoneNumber) o;
+
+        // 4. 比較核心欄位
+        return pn.lineNum == lineNum && pn.prefix == prefix && pn.areaCode == areaCode;
+    }
+}
+```
+
+## 2. 覆寫 equals 時，永遠連同 hashCode 一起覆寫
+
+這是一條沒有例外的鐵律：**如果兩個物件透過 equals 比較是相等的，那它們的 hashCode 也必須絕對相等。**
+
+如果你覆寫了 `equals` 卻忘了覆寫 `hashCode`，這個類別就無法跟基於 Hash 的集合（如 `HashMap`、`HashSet`）一起正常運作。你可能會明明把物件放進了 Map 裡，卻怎麼也拿不出來，因為它們被放進了不同的 Hash Bucket 中！
+
+✅ **現代 Java 的 hashCode 寫法：**
+在 Java 8 之後，我們不需要再像以前一樣自己手動用 `31 * result + c` 去算雜湊值，直接交給 `Objects.hash()` 處理即可。
+
+```java
+@Override
+public int hashCode() {
+    // 將 equals 中用到的核心欄位，通通傳進來產生雜湊值
+    return Objects.hash(areaCode, prefix, lineNum);
+}
+```
+
+## 3. 永遠覆寫 toString
+
+`Object` 預設的 `toString` 實作只會印出 `類別名稱@十六進位雜湊碼`（例如 `PhoneNumber@163b91`），這對除錯來說毫無幫助。
+
+提供一個良好的 `toString` 實作，可以讓類別在使用、記錄 Log 與除錯時更加友善。
+
+✅ **最佳實踐：**
+
+- 在 `toString` 的回傳字串中，**包含所有令人感興趣的資訊**（即物件的核心屬性）。
+- 清楚標示格式，若格式是 API 的一部分，請在 JavaDoc 中說明清楚。
+
+```java
+/**
+ * 傳回電話號碼的字串表示法。
+ * 格式保證為 "XXX-YYY-ZZZZ"。
+ */
+@Override
+public String toString() {
+    return String.format("%03d-%03d-%04d", areaCode, prefix, lineNum);
+}
+```
+
+## 4. 謹慎地覆寫 clone
+
+在 Java 中，`Cloneable` 是一個極度充滿缺陷的介面。它裡面甚至沒有 `clone()` 方法，而是透過一個標記介面去改變 `Object.clone()` 的受保護行為，這種設計非常反直覺，而且充滿了深層拷貝 (Deep Copy) 的潛在 Bug。
+
+❌ **結論：忘掉 Cloneable 吧！**
+
+✅ **更好的複製替代方案：複製建構子 (Copy Constructor) 或 複製工廠 (Copy Factory)**
+如果你需要複製物件，提供一個接收相同型別參數的建構子，或是靜態工廠方法，不僅更安全，還不會受到 `Cloneable` 機制的各種怪異限制。
+
+```java
+// 複製建構子 (Copy Constructor)
+public PhoneNumber(PhoneNumber number) {
+    this.areaCode = number.areaCode;
+    this.prefix = number.prefix;
+    this.lineNum = number.lineNum;
+}
+
+// 複製靜態工廠 (Copy Factory)
+public static PhoneNumber newInstance(PhoneNumber number) {
+    return new PhoneNumber(number.areaCode, number.prefix, number.lineNum);
+}
+```
+
+## 5. 考慮實作 Comparable 介面
+
+與前面幾個方法不同，`compareTo` 不是定義在 `Object` 中，而是 `Comparable` 介面的唯一方法。
+
+當你的類別有「自然的排序規則 (Natural Ordering)」（例如字母順序、時間先後、數值大小），你就應該實作 `Comparable` 介面。這樣一來，你的物件就能直接利用 `Arrays.sort()` 或被丟進 `TreeSet` 裡自動排序。
+
+✅ **現代 Java 的 compareTo 寫法：**
+在 Java 8 之後，`Comparator` 介面提供了一系列極其優雅的靜態建構方法，我們不再需要手動寫一堆繁瑣的 `>`、`<` 或 `Integer.compare`，直接用鏈式呼叫 (Method Chaining) 就能搞定！
+
+```java
+public final class PhoneNumber implements Comparable<PhoneNumber> {
+    // ... 省略欄位與建構子 ...
+
+    // 使用 Java 8 的 Comparator 建立鏈式比較規則
+    private static final Comparator<PhoneNumber> COMPARATOR =
+            Comparator.comparingInt((PhoneNumber pn) -> pn.areaCode)
+                      .thenComparingInt(pn -> pn.prefix)
+                      .thenComparingInt(pn -> pn.lineNum);
+
+    @Override
+    public int compareTo(PhoneNumber pn) {
+        return COMPARATOR.compare(this, pn);
+    }
+}
+```
+
+這種寫法不僅效能好，而且可讀性極高，一眼就能看出我們是「先比區碼、再比局碼、最後比號碼」。
