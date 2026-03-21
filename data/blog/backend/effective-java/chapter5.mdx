@@ -1,0 +1,200 @@
+---
+title: 'Effective Java 實戰筆記 (四)：泛型的安全防線與進階設計'
+date: '2026-03-24'
+description: '為什麼編譯器總是對你的 List 畫黃線？這篇文章帶你探討 Effective Java 中關於泛型的 8 個黃金守則，徹底掌握 PECS 原則與型別安全。'
+tags: ['Java', 'Backend', 'Effective Java', 'Generics']
+summary: '泛型的出現，是為了把執行期的崩潰，提前變成編譯期的錯誤。'
+---
+
+# Effective Java 實戰筆記 (四)：泛型的安全防線與進階設計
+
+在 Java 1.5 引入泛型之前，從集合 (Collections) 中讀取出來的物件都必須手動強制轉型。萬一不小心塞錯型別，系統在編譯階段完全不會察覺，直到上線執行時才會無情地噴出 `ClassCastException` 導致系統崩潰。
+
+泛型的出現徹底改變了這一切。它能讓編譯器幫你抓蟲，成為我們最堅實的安全防線。這篇文章整理了《Effective Java》第三版中關於泛型的核心精華。
+
+## 1. 絕對不要使用原生型別 (Raw Types)
+
+每個帶有泛型的類別或介面（例如 `List<E>`），都有一個不帶型別參數的**原生型別 (Raw Type)**，例如單純的 `List`。
+
+**原生型別的存在，純粹只是為了與 Java 5 以前的舊程式碼相容。** 在現代 Java 開發中，使用原生型別就等於主動放棄了編譯器的安全網！
+
+❌ **災難示範：失去安全網的原生型別**
+
+```java
+List lenses = new ArrayList(); // 原生型別，編譯器不會檢查你塞了什麼
+lenses.add(new PrimeLens(35)); // 塞入定焦鏡，合法
+lenses.add("Fujifilm X-T50");  // 不小心塞入字串，竟然也合法！
+
+// 執行期崩潰：當你試圖拿出來當 PrimeLens 使用時，就會觸發 ClassCastException
+PrimeLens lens = (PrimeLens) lenses.get(1);
+```
+
+✅ **正確寫法：參數化型別**
+
+```java
+List<PrimeLens> lenses = new ArrayList<>();
+// lenses.add("Fujifilm X-T50"); // 編譯器直接畫紅線報錯，連 Build 都過不了！
+```
+
+> **例外情況**：由於泛型在執行期會「型別抹除 (Type Erasure)」，只有兩個地方你必須使用原生型別：一是**類別常值**（如 `List.class`），二是使用 **`instanceof`** 操作時。
+
+## 2. 消除所有未受檢的警告 (Unchecked Warnings)
+
+如果你有在使用 SonarQube，一定對 `unchecked conversion` 這種警告不陌生。
+
+請盡可能地**消除所有的 unchecked 警告**！如果你消除了所有警告，你就能保證程式碼是型別安全的 (Type-safe)，絕對不會在執行期遇到 `ClassCastException`。
+
+如果有一個警告你實在無法消除，但你**可以證明引起警告的程式碼是安全的**，那麼請在盡可能「最小的範圍」內，使用 `@SuppressWarnings("unchecked")` 來抑制它，並且**一定要加上註解說明為什麼它是安全的**。
+
+```java
+public E pop() {
+    if (size == 0) throw new EmptyStackException();
+
+    // 證明安全：push 已經限制了只能塞入 E 型別，所以這個強制轉型絕對安全
+    @SuppressWarnings("unchecked")
+    E result = (E) elements[--size];
+
+    elements[size] = null;
+    return result;
+}
+```
+
+## 3. 偏好 List 優於陣列
+
+這點常常讓從 C 語言轉來的工程師很不習慣。在 Java 中，陣列與泛型有著截然不同的底層邏輯，把它們混在一起往往會引發災難。
+
+- **陣列是協變的 (Covariant) 且具體化的 (Reified)**：如果 `Integer` 是 `Number` 的子類別，那麼 `Integer[]` 也是 `Number[]` 的子類別。陣列會在「執行期」才強制檢查型別。
+- **泛型是不變的 (Invariant) 且型別抹除的 (Erased)**：`List<Integer>` 絕對不是 `List<Number>` 的子類別。泛型只在「編譯期」檢查，進入執行期後型別資訊就被抹除了。
+
+❌ **陣列的地雷：延遲到上線才爆炸**
+
+```java
+Object[] objectArray = new Long[1];
+objectArray[0] = "I don't fit in"; // 編譯會過！但執行期噴出 ArrayStoreException
+```
+
+✅ **泛型的防線：編譯期立刻擋下**
+
+```java
+List<Object> ol = new ArrayList<Long>(); // Incompatible types 編譯直接報錯！
+```
+
+> **結論：** 當你遇到 `generic array creation` 錯誤時，不要試圖強迫轉型，**請果斷把陣列 (`T[]`) 換成列表 (`List<T>`)**。
+
+## 4. 優先使用泛型類別與泛型方法
+
+當你在設計自己專屬的類別或工具方法時，請盡可能讓它們泛型化，不要使用 `Object` 搭配強制轉型。
+
+**泛型類別範例：自製的 Stack**
+
+```java
+public class Stack<E> {
+    private Object[] elements;
+    private int size = 0;
+
+    public Stack() {
+        elements = new Object[16];
+    }
+
+    public void push(E e) {
+        elements[size++] = e;
+    }
+
+    public E pop() {
+        // ...
+        @SuppressWarnings("unchecked") E result = (E) elements[--size];
+        return result;
+    }
+}
+```
+
+**泛型方法範例：集合聯集工具**
+
+```java
+// 方法簽章自帶泛型宣告 <E>
+public static <E> Set<E> union(Set<E> s1, Set<E> s2) {
+    Set<E> result = new HashSet<>(s1);
+    result.addAll(s2);
+    return result;
+}
+```
+
+## 5. 善用有邊界的萬用字元提高 API 靈活性
+
+因為泛型是「不變的 (Invariant)」，`List<Integer>` 不能當作 `List<Number>` 傳遞。這會讓 API 變得很死板。這時我們就需要**邊界萬用字元 (Bounded wildcards)**。
+
+請牢記這個口訣：**PECS (Producer-Extends, Consumer-Super)**。
+
+- 如果參數是個**生產者 (Producer)**（提供資料給你讀取），請使用 `? extends T`。
+- 如果參數是個**消費者 (Consumer)**（接收你寫入的資料），請使用 `? super T`。
+
+```java
+// src 是生產者（我們從裡面讀取 E 放進 Stack），所以用 extends
+public void pushAll(Iterable<? extends E> src) {
+    for (E e : src) push(e);
+}
+
+// dst 是消費者（我們把 Stack 的資料寫進去），所以用 super
+public void popAll(Collection<? super E> dst) {
+    while (!isEmpty()) dst.add(pop());
+}
+```
+
+有了 PECS 原則，你的 API 就能完美兼容各種父子類別的集合！
+
+## 6. 明智地結合泛型與可變參數 (Varargs)
+
+可變參數 (`...`) 與泛型一樣是在 Java 1.5 引入的，但它們兩個相處得並不好。
+當你呼叫一個帶有泛型可變參數的方法時，編譯器在底層其實會為你**偷偷建立一個陣列**。就像 Item 28 說的，泛型陣列是不安全的（Heap Pollution）。
+
+如果你確信你的泛型可變參數方法是型別安全的（也就是你**絕對不會去修改那個底層陣列，也不會把它回傳給外部**），你可以使用 `@SafeVarargs` 註解來消除那些煩人的警告。
+
+```java
+@SafeVarargs // 告訴編譯器：「我發誓這個泛型可變參數很安全！」
+static <T> List<T> flatten(List<? extends T>... lists) {
+    List<T> result = new ArrayList<>();
+    for (List<? extends T> list : lists) {
+        result.addAll(list);
+    }
+    return result;
+}
+```
+
+## 7. 考慮使用型別安全的異質容器
+
+傳統的 `Map<K, V>` 每一個 key 都只能對應相同型別的 value。但有時候（例如你在設計資料庫的 ORM 映射、或是依賴注入框架時），你需要一個**可以裝載不同型別，但拿出來時依舊型別安全**的超級容器。
+
+這時候，你可以利用 `Class<T>` 作為「型別權杖 (Type Token)」來設計**異質容器 (Heterogeneous Container)**。
+
+```java
+public class Favorites {
+    // 雖然 Map 的 value 是 Object，但我們在 put/get 時會進行把關
+    private Map<Class<?>, Object> favorites = new HashMap<>();
+
+    public <T> void putFavorite(Class<T> type, T instance) {
+        if (type == null) throw new NullPointerException("Type is null");
+        // 透過 type.cast 確保塞進去的物件型別絕對正確
+        favorites.put(type, type.cast(instance));
+    }
+
+    public <T> T getFavorite(Class<T> type) {
+        // 拿出來時自動幫你轉型為 T，外面呼叫不用再強制轉型！
+        return type.cast(favorites.get(type));
+    }
+}
+```
+
+**使用端：**
+
+```java
+Favorites f = new Favorites();
+f.putFavorite(String.class, "Spring Boot");
+f.putFavorite(Integer.class, 2026);
+f.putFavorite(Class.class, Favorites.class);
+
+// 拿出來時完全不需要轉型！完美！
+String framework = f.getFavorite(String.class);
+int year = f.getFavorite(Integer.class);
+```
+
+這就是泛型的終極威力！透過將泛型從「容器本身」轉移到「容器的 Key」，我們創造出了一個極具彈性且絕對安全的超級黑洞。
