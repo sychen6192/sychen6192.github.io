@@ -1,0 +1,26 @@
+---
+title: '別再用 java.util.Date 了！Java 日期處理最佳實踐'
+date: '2026-03-21'
+tags: ['Java', 'Spring Boot', 'Architecture', 'BestPractices']
+draft: false
+summary: '開發 Spring Boot 專案時，Entity 到底該用哪種 Date 型別？全面擁抱 Java 8 的 java.time API，解決潛在的併發與架構污染問題。'
+---
+
+先上結論：如果不受舊套件限制，開發 Entity 或 DTO 時，**請直接改用 Java 8+ 的 `java.time` API。**
+
+只有日期用 `LocalDate`，日期加時間用 `LocalDateTime`。
+
+## 為什麼舊的 API 這麼雷？
+
+1. **`java.util.Date` 的設計缺陷：** 它是 Mutable（可變的）！在多執行緒環境下共用極易產生 Bug。而且它名字叫 Date，裡面卻包含 Time，語意非常模糊。在 JPA 裡還得額外加 `@Temporal` 來區分，沒加預設當成 TIMESTAMP 處理，常常精準度出問題。
+2. **`java.sql.Date` 的架構污染：** 它強行把時間部分設為 0 來配合資料庫。最嚴重的是，它是 JDBC 底層的物件，如果你把它寫進 JPA Entity，等於是把「資料庫 Driver 層」的實作細節洩漏進「業務領域層」，嚴重違反分層設計。
+
+## 推薦的 Mapping 規則
+
+| 需求情境        | ❌ 舊 API (別用了) | ✅ 新 API (`java.time`) | SQL 對應類型             |
+| :-------------- | :----------------- | :---------------------- | :----------------------- |
+| **純日期**      | `java.sql.Date`    | **`LocalDate`**         | `DATE`                   |
+| **純時間**      | `java.sql.Time`    | **`LocalTime`**         | `TIME`                   |
+| **日期 + 時間** | `java.util.Date`   | **`LocalDateTime`**     | `TIMESTAMP` / `DATETIME` |
+
+導入 `java.time` 後，物件變成 Immutable，保證了執行緒安全。放過 `java.util.Date`，也放過未來的自己吧。

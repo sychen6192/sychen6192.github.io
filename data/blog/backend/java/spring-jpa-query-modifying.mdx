@@ -1,0 +1,24 @@
+---
+title: 'Spring Data JPA 查詢大解析與 @Modifying 踩坑'
+date: '2026-03-21'
+tags: ['Java', 'Spring Boot', 'JPA', 'JPQL']
+draft: false
+summary: '為什麼自己寫的 UPDATE 語法會噴 TransactionRequiredException？這篇帶你搞懂 Spring Data JPA 的查詢種類與底層交易機制'
+---
+
+在 Repository 裡，我們常會混用不同種查詢寫法。但只要牽涉到自己寫的 UPDATE/DELETE 語法，就很容易踩到坑。
+
+## 三種查詢武器
+1. **語法糖 (衍生查詢)：** `findByEmail(String email)`。靠方法名稱自動組 SQL，適合單表簡單查。
+2. **JPQL 標準查詢：** `@Query("SELECT u FROM User u WHERE u.age > ?1")`。寫的是 Java 物件屬性，跨資料庫移植性高。
+3. **原生 SQL (Native Query)：** 加了 `nativeQuery = true`，直接寫底層 DB 語法，適合極度複雜的報表，但失去移植性。
+
+## 為什麼自訂的 Update/Delete 會報錯？
+如果你自己寫了個 `@Query` 做 `UPDATE`，沒加 `@Transactional` 呼叫時會直接噴 `TransactionRequiredException`，但內建的 `save()` 卻不會？
+
+因為 Repository 介面底層被 Spring 標記了 `@Transactional(readOnly = true)`。
+當你自己寫 `@Query` + `@Modifying` 時，Hibernate 發現你要做 UPDATE，但當下給的卻是 ReadOnly 環境，它覺得不合理就拒絕執行。而內建的 `save()` 是因為原始碼裡早就單獨掛上非唯讀的 Transaction 了。
+
+**解法：** 永遠把 `@Transactional` 標在 Service 層的方法上，確保業務動作被包裝成 Atomic 交易。
+
+> 💡 **進階雷點：** 用 `@Modifying` 時記得加上 `clearAutomatically = true`。因為你自己下的 UPDATE 語法 JPA 的一級快取並不知情，不強制清空快取的話，下一步撈出來的還是舊資料！

@@ -1,0 +1,18 @@
+---
+title: '為什麼 JPA Entity 嚴禁無腦加 @Data？'
+date: '2026-03-21'
+tags: ['Java', 'Spring Boot', 'Lombok', 'JPA', 'Architecture']
+draft: false
+summary: 'Lombok 的 @Data 是個大禮包，但把它掛在 JPA Entity 上，往往是 StackOverflowError 和效能崩潰的開始。'
+---
+
+寫 DTO 或 VO 的時候，掛個 `@Data` 真的很爽，Getter、Setter、`toString()` 一次滿足。**但是，絕對不要把 `@Data` 放在 JPA Entity (PO) 上！** ## `@Data` 到底包了什麼？
+它等同於同時加了 `@Getter`, `@Setter`, `@RequiredArgsConstructor`, `@ToString`, 跟 `@EqualsAndHashCode`。問題就出在最後這兩個。
+
+## 放在 Entity 上會引發什麼災難？
+
+1. **StackOverflow 無限迴圈：** 如果你的 Entity 有雙向關聯（例如 User 裡面有 `@OneToMany` 的 Order，Order 裡有 User）。當印出 User 的 `toString()` 時，會去叫 Order，Order 又叫回 User... 瞬間引發無限遞迴爆炸。
+2. **意外觸發 Lazy Loading (效能殺手)：** `@EqualsAndHashCode` 預設會讀取所有欄位。如果你有設為 `FetchType.LAZY` 的關聯實體，只要把它丟進 `HashSet`，Lombok 就會在背後幫你把所有 Lazy 資料從資料庫全撈出來（經典的 N+1 Query 問題），效能直接拖垮。
+
+**最佳實踐：**
+在 JPA Entity 上，請乖乖拆開寫 `@Getter`, `@Setter`, `@RequiredArgsConstructor`。如果真的需要 `toString()`，請手動 Override，並且**絕對避開**有 `@OneToMany` 或 `@ManyToOne` 的關聯欄位。

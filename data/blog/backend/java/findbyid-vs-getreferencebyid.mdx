@@ -1,0 +1,38 @@
+---
+title: 'JPA 效能優化：findById() vs getReferenceById()'
+date: '2026-03-21'
+tags: ['Java', 'Spring Boot', 'JPA', 'Performance']
+draft: false
+summary: '你知道只為了設定 Foreign Key 去撈資料庫有多浪費效能嗎？這篇解釋 Eager 與 Lazy 查詢的差異，教你省下不必要的 SELECT。'
+---
+
+`findById()` 和 `getReferenceById()` 的差異是實務上優化資料庫效能的關鍵技巧。最大的差別在於 **資料庫查詢時機 (Database Hit)**：
+
+- **`findById(id)` (Eager)：** 呼叫的瞬間，立刻發送 `SELECT` 語句，並映射成真實的 Java 物件。如果找不到會回傳 `Optional.empty()`。
+- **`getReferenceById(id)` (Lazy)：** 呼叫時 **完全不會觸發 DB 查詢**！Spring 會回傳一個 Proxy 空殼，裡面只有你給的 ID。直到你在 Transaction 內呼叫了其他屬性（如 `getName()`），它才真的去撈資料。
+
+## 實戰優化場景：設定 Foreign Key
+
+假設你要新增一筆訂單，並關聯到一個已知的 `userId`。
+
+**❌ 浪費效能的寫法 (`findById`)：**
+
+```java
+// 觸發 1 次 SELECT
+User user = userRepository.findById(userId).orElseThrow();
+Order order = new Order();
+order.setUser(user);
+orderRepository.save(order); // 觸發 1 次 INSERT
+```
+
+✅ 高效的寫法 (getReferenceById)：
+
+```java
+// 完全不觸發 SELECT！拿個空殼 Proxy 就好
+User userRef = userRepository.getReferenceById(userId);
+Order order = new Order();
+order.setUser(userRef);
+orderRepository.save(order); // 觸發 1 次 INSERT，直接把 Proxy 裡的 ID 寫進去
+```
+
+總結： 想看真實內容用 findById；只想拿來當 Foreign Key 關聯別人，用 getReferenceById 省下一發 SELECT！
