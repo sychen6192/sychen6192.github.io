@@ -1,0 +1,159 @@
+---
+title: 'Effective Java 實戰筆記：優雅駕馭例外處理 (Exceptions)'
+date: '2026-03-26'
+description: '例外處理不只是 try-catch 這麼簡單。這篇文章整理了 Effective Java 第三版中關於例外處理的 9 個黃金準則，帶你寫出高容錯率的強健系統。'
+tags: ['Java', 'Backend', 'Effective Java', 'Exceptions', 'Architecture']
+summary: '例外是用來處理「真正的例外狀況」，而不是拿來做流程控制的。'
+---
+
+# Effective Java 實戰筆記：優雅駕馭例外處理 (Exceptions)
+
+在 Java 開發中，例外處理 (Exception Handling) 是一門極具藝術感的學問。設計得好，系統的除錯會變得無比輕鬆；設計得不好，你的程式碼將會充斥著滿坑滿谷的 `try-catch` 巢狀地獄，甚至讓真正致命的錯誤被悄悄吞噬。
+
+這篇文章整理了《Effective Java》第三版中，關於例外處理的 9 個黃金準則，帶你建立起世界級的容錯架構思維。
+
+## 1. 例外只該用在「真正的例外狀況」
+
+**絕對不要把例外拿來當作日常的流程控制 (Control Flow) 工具！** 這是一個初學者偶爾會犯的荒謬錯誤。例如，為了遍歷一個陣列，卻故意寫一個無窮迴圈，然後用 `ArrayIndexOutOfBoundsException` 來當作迴圈的終止條件。
+
+❌ **災難示範：用例外做流程控制**
+
+```java
+// 絕對不要這樣寫！效能極差且完全違背例外的初衷
+try {
+    int i = 0;
+    while(true) {
+        serverLogs[i].process();
+        i++;
+    }
+} catch (ArrayIndexOutOfBoundsException e) {
+    // 企圖用 Exception 來結束迴圈
+}
+```
+
+✅ **正確寫法：使用標準的迴圈結構**
+
+```java
+for (Log log : serverLogs) {
+    log.process();
+}
+```
+
+> **核心原則：** 例外 (Exceptions) 就像系統的緊急煞車系統，只有在遇到「不該發生」的異常狀況時才應該被觸發。
+
+## 2. 正確區分 Checked 與 Unchecked Exceptions
+
+Java 的例外分為三大類，你必須非常清楚在什麼時候該丟出哪一種：
+
+1. **受檢例外 (Checked Exceptions)：**
+   當你預期呼叫端（Client）可以從這個錯誤中「合理地恢復」時使用。例如：嘗試讀取 Homelab NAS 裡的照片檔案，但檔案不存在。這時候丟出 `FileNotFoundException`，強迫呼叫端去 `catch` 並嘗試讀取備用路徑。
+2. **執行期例外 (Runtime / Unchecked Exceptions)：**
+   用來表示**程式邏輯上的錯誤 (Programming Errors)**。通常是因為違反了 API 的先決條件。例如：規定焦段必須大於 0，但使用者傳入了 `-15`，這時果斷丟出 `IllegalArgumentException`。
+3. **錯誤 (Errors)：**
+   通常保留給 JVM 使用，用來表示系統資源耗盡等無法挽回的災難（如 `OutOfMemoryError`）。**我們自己寫的程式，永遠都應該繼承 `RuntimeException`，絕對不要自己去繼承 `Error`**。
+
+## 3. 避免不必要的 Checked Exceptions
+
+過度使用 Checked Exception 會讓 API 變得很難用，因為它會強迫呼叫端寫一堆冗長的 `try-catch` 區塊。
+
+**現代 Java (Java 8+) 的救星：Optional**
+如果你遇到一個可能無法回傳正常結果的狀況，比起丟出 Checked Exception，現代 Java 更推薦你回傳一個 `Optional<T>`。
+
+```java
+// 傳統做法：找不到使用者就丟出 Checked Exception
+public User findUser(String id) throws UserNotFoundException { ... }
+
+// 現代做法：利用 Optional，把處理的選擇權優雅地交給呼叫端
+public Optional<User> findUser(String id) { ... }
+```
+
+只有在「單純回傳 Empty 無法提供足夠的錯誤資訊」時，才考慮丟出例外。
+
+## 4. 優先使用標準的 Exceptions
+
+不要動不動就自創例外類別！Java 標準函式庫已經提供了許多語意清晰的例外，重複使用它們可以讓你的 API 更容易被其他工程師理解。
+
+| 常見的標準例外                    | 適用情境                       | 實戰舉例                          |
+| :-------------------------------- | :----------------------------- | :-------------------------------- |
+| **IllegalArgumentException**      | 傳入的參數值不合法             | 傳入了負數的光圈值                |
+| **IllegalStateException**         | 物件當前的狀態不允許呼叫此方法 | 嘗試啟動一個已經在運行中的 Server |
+| **NullPointerException**          | 傳入了禁止為 null 的參數       | `Objects.requireNonNull(lens)`    |
+| **IndexOutOfBoundsException**     | 陣列或集合的索引越界           | -                                 |
+| **UnsupportedOperationException** | 物件不支援該方法               | 呼叫唯讀集合的 `add()` 方法       |
+
+## 5. 拋出與抽象層次相符的例外 (Exception Translation)
+
+**如果較高層次的邏輯直接拋出低層次的例外，會讓 API 的設計徹底崩壞。**
+
+試想一下，如果你的 Next.js 部落格後端，在呼叫 `getArticle()` 方法時，竟然拋出了底層的 `SQLException`。這會讓上層的商業邏輯與特定的資料庫實作死死綁在一起！
+
+✅ **正確做法：例外轉譯 (Exception Translation)**
+攔截低層次的例外，並拋出一個能用高層次領域語言解釋的例外。
+
+```java
+try {
+    // 嘗試從底層資料庫讀取文章
+    return database.query(...);
+} catch (SQLException e) {
+    // 轉譯為更高層級的商業邏輯例外，並將原始的 cause 傳遞進去 (Exception Chaining)
+    throw new ArticleFetchException("無法取得部落格文章", e);
+}
+```
+
+## 6. 將失敗的關鍵資訊寫入 Detail Message 中
+
+當系統在凌晨三點崩潰，值班工程師被 call 起來看 Log 時，他最不想看到的就是一個光禿禿的 `IndexOutOfBoundsException`。
+
+**例外的 Detail Message 必須包含所有導致該例外發生的參數與欄位值！**
+
+✅ **好的例外實作範例：**
+
+```java
+public class OutOfStockException extends RuntimeException {
+    // 強迫在建構時傳入關鍵資訊
+    public OutOfStockException(String itemId, int requested, int available) {
+        super(String.format("庫存不足！商品: %s, 請求數量: %d, 剩餘庫存: %d",
+              itemId, requested, available));
+    }
+}
+```
+
+## 7. 努力保持「失敗原子性」 (Failure Atomicity)
+
+**一個失敗的方法呼叫，應該讓物件保持在它被呼叫之前的狀態。**
+
+如果一個操作執行到一半發生例外，卻把物件的狀態改得亂七八糟，這會引發嚴重的後續連鎖錯誤。
+
+**如何實現失敗原子性？**
+
+1. **設計不可變物件 (Immutable Objects)**：這是最無敵的解法。如果狀態不能變，就沒有狀態被破壞的問題。
+2. **在修改狀態前，先檢查參數的有效性**。確保可能出錯的邏輯，發生在修改任何屬性之前。
+3. **在物件的一份「拷貝 (Copy)」上進行操作**，確定一切成功後再替換掉原本的資料。
+
+## 8. 絕對不要忽略例外 (Don't Ignore Exceptions)
+
+**空的 catch 區塊是萬惡之源！** 它會把系統發出的求救信號直接消音，讓系統帶著潛在的錯誤繼續運行，直到在未來的某個時刻引發更大的災難。
+
+❌ **致命錯誤：**
+
+```java
+try {
+    closeNetworkConnection();
+} catch (IOException e) {
+    // 什麼都不做，假裝沒事發生
+}
+```
+
+✅ **如果你真的有 100% 的把握可以忽略它，請這麼做：**
+
+1. 將 catch 變數命名為 `ignored`。
+2. 在 catch 區塊內寫下詳細的註解，說明為什麼忽略它是安全的。
+
+```java
+try {
+    closeNetworkConnection();
+} catch (IOException ignored) {
+    // 關閉連線時發生錯誤可以安全忽略，
+    // 因為程式即將結束，OS 會負責回收所有的 Socket 資源。
+}
+```

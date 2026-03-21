@@ -1,12 +1,12 @@
 ---
-title: 'Effective Java 實戰筆記 (四)：泛型的安全防線與進階設計'
+title: 'Effective Java 實戰筆記：泛型的安全防線與進階設計'
 date: '2026-03-24'
 description: '為什麼編譯器總是對你的 List 畫黃線？這篇文章帶你探討 Effective Java 中關於泛型的 8 個黃金守則，徹底掌握 PECS 原則與型別安全。'
 tags: ['Java', 'Backend', 'Effective Java', 'Generics']
 summary: '泛型的出現，是為了把執行期的崩潰，提前變成編譯期的錯誤。'
 ---
 
-# Effective Java 實戰筆記 (四)：泛型的安全防線與進階設計
+# Effective Java 實戰筆記：泛型的安全防線與進階設計
 
 在 Java 1.5 引入泛型之前，從集合 (Collections) 中讀取出來的物件都必須手動強制轉型。萬一不小心塞錯型別，系統在編譯階段完全不會察覺，直到上線執行時才會無情地噴出 `ClassCastException` 導致系統崩潰。
 

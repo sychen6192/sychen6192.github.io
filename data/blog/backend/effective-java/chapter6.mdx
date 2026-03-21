@@ -1,0 +1,184 @@
+---
+title: 'Effective Java 實戰筆記：列舉與註解'
+date: '2026-03-25'
+description: '捨棄傳統的 int 常數吧！這篇文章帶你探索 Java 中 Enum 與註解的正確使用姿勢，發揮它們強大的型別安全與封裝能力。'
+tags: ['Java', 'Backend', 'Effective Java', 'Enum', 'Annotation']
+summary: 'Java 的 Enum 不只是常數，而是完整的類別。掌握它，能讓你的程式碼可讀性與安全性大幅提升。'
+---
+
+# Effective Java 實戰筆記 ：列舉與註解
+
+在早期的 Java 或其他程式語言中，我們常常會宣告一堆 `public static final int` 來代表某些狀態或類別。但在現代 Java 開發中，這種做法已經過時了。
+
+Java 的 Enum（列舉）本質上是一個功能完整的類別，它不僅解決了傳統 int 常數缺乏型別安全的問題，還能夾帶資料、實作介面，甚至自帶特定的商業邏輯。這篇文章為你整理了《Effective Java》中關於列舉與註解的 8 個黃金守則。
+
+## 1. 用 Enum 取代 int 常數
+
+傳統的 int 常數模式（int enum pattern）有非常多缺點：沒有型別安全、印出來只是一堆無意義的數字，而且如果常數的值改變了，客戶端程式碼必須重新編譯。
+
+**✅ 正確寫法：讓 Enum 夾帶資料與行為**
+假設我們在程式裡定義 Fujifilm 相機的幾種經典底片模擬（Film Simulation），我們可以直接在 Enum 中夾帶它們的對比度與飽和度屬性：
+
+```java
+public enum FilmSimulation {
+    PROVIA("Standard", 0, 0),
+    VELVIA("Vivid", 1, 1),
+    CLASSIC_CHROME("Documentary", 1, -1);
+
+    private final String description;
+    private final int contrast;
+    private final int saturation;
+
+    // Enum 的建構子預設就是 private
+    FilmSimulation(String description, int contrast, int saturation) {
+        this.description = description;
+        this.contrast = contrast;
+        this.saturation = saturation;
+    }
+
+    public String getDescription() { return description; }
+    public int getContrast() { return contrast; }
+    public int getSaturation() { return saturation; }
+}
+```
+
+透過 Enum，我們不只定義了常數，還把與這些常數高度相關的資料與行為完美封裝在一起！
+
+## 2. 請用實例欄位而非 ordinal
+
+所有的 Enum 都有一個內建的 `ordinal()` 方法，會回傳該常數在宣告時的索引位置（從 0 開始）。
+
+**絕對不要利用 `ordinal()` 來取得與 Enum 相關的數值！** 如果未來有人打亂了宣告順序，或者新增了欄位，依賴 `ordinal()` 的邏輯就會直接大崩潰。
+
+❌ **錯誤示範：依賴 ordinal()**
+
+```java
+public enum JLPTLevel {
+    N5, N4, N3, N2, N1;
+
+    // 千萬不要這樣寫！如果未來改變順序就死定了
+    public int getLevelNumber() { return 5 - ordinal(); }
+}
+```
+
+✅ **正確寫法：使用實例欄位 (Instance fields)**
+永遠把你要的數值，當作資料存在實例欄位中。
+
+```java
+public enum JLPTLevel {
+    N5(5), N4(4), N3(3), N2(2), N1(1);
+
+    private final int levelNumber;
+    JLPTLevel(int levelNumber) { this.levelNumber = levelNumber; }
+    public int getLevelNumber() { return levelNumber; }
+}
+```
+
+## 3. 用 EnumSet 取代位元欄位
+
+在 C 語言或早期 Java 中，如果一個屬性允許多選，常常會用 2 的次方數（1, 2, 4, 8...）來定義常數，然後用位元運算（Bitwise OR `|`）把他們組合起來，這稱為位元欄位 (Bit field)。
+
+位元欄位極難閱讀，且一旦超過 64 個選項就塞不進 `long` 裡面了。
+
+✅ **現代做法：使用 EnumSet**
+Java 提供了 `EnumSet` 類別，它底層實作非常巧妙，針對元素較少的 Enum，底層依然是用單一的 `long` 以位元向量來操作，因此效能與位元運算一樣快，同時又保留了集合框架 (Collection Framework) 的型別安全與易讀性。
+
+```java
+public class ServerNode {
+    public enum Role { WEB, DB, CACHE, INGRESS }
+
+    // 參數請使用 Set 介面，而不是直接綁死 EnumSet
+    public void assignRoles(Set<Role> roles) { ... }
+}
+
+// 呼叫端：可讀性極高！
+node.assignRoles(EnumSet.of(Role.WEB, Role.CACHE));
+```
+
+## 4. 用 EnumMap 取代 int 索引的陣列
+
+如果你想把資料根據某個 Enum 來分組，不要傻傻地宣告一個陣列，然後用 Enum 的 `ordinal()` 當作陣列的 index！這不但沒有編譯期檢查，如果你 index 塞錯，直接就會跑出 `ArrayIndexOutOfBoundsException`。
+
+✅ **正確做法：使用 EnumMap**
+這是一個專門為 Enum Key 設計的 Map 實作。它的底層依然是陣列，所以效能極高，但它提供了 `Map` 的介面，保證了型別安全。
+
+```java
+// 假設我們要將歌單裡的曲目按照曲風分類
+Map<Genre, Set<Song>> songsByGenre = new EnumMap<>(Genre.class);
+
+for (Genre g : Genre.values()) {
+    songsByGenre.put(g, new HashSet<>());
+}
+
+for (Song song : playlist) {
+    // 安全、快速且優雅！
+    songsByGenre.get(song.getGenre()).add(song);
+}
+```
+
+## 5. 用介面模擬可擴展的 Enum
+
+Enum 有一個天生的限制：**它不能繼承另一個 Enum**。
+在絕大多數情況下，Enum 確實不需要繼承，但有一種情境例外：**操作碼 (Opcodes)** 或 **擴充外掛**。
+
+如果你發布了一個系統預設的 Enum，但希望讓使用你 API 的客戶端可以「擴充」他們自己的選項，你可以**定義一個介面，並讓 Enum 去實作它**。
+
+```java
+// 1. 定義介面
+public interface Operation {
+    double apply(double x, double y);
+}
+
+// 2. 系統預設的 Enum 實作該介面
+public enum BasicOperation implements Operation {
+    PLUS("+") { public double apply(double x, double y) { return x + y; } },
+    MINUS("-") { public double apply(double x, double y) { return x - y; } };
+    // ...
+}
+
+// 3. 客戶端可以自行擴充自己的 Enum
+public enum ExtendedOperation implements Operation {
+    EXP("^") { public double apply(double x, double y) { return Math.pow(x, y); } };
+    // ...
+}
+```
+
+只要你的 API 參數接收的是 `Operation` 介面，無論是系統自帶的加減法，或是使用者自訂的指數運算，都能無縫銜接。
+
+## 6. 比起命名慣例，更推薦使用註解
+
+在早期（如 JUnit 3 時代），開發者常常用「命名慣例 (Naming Patterns)」來標示某些方法，例如規定測試方法一定要以 `test` 開頭（如 `testLogin`）。
+這有很大的問題：如果你打錯字變成 `tsetLogin`，編譯器不會報錯，測試框架也會悄悄略過它，讓你誤以為測試通過了！
+
+✅ **正確做法：使用自訂註解 (Annotations)**
+現在的 JUnit 4/5 或是 Spring Boot，全面擁抱了註解（例如 `@Test`）。註解可以確保編譯器幫你檢查語法，還能掛載額外的參數，明確告知執行環境該如何處理這個方法。
+
+## 7. 堅持使用 @Override 標示覆寫方法
+
+這是防呆的最高指導原則。**只要你自認是在覆寫父類別的方法，就一定要掛上 `@Override` 註解！**
+
+❌ **如果沒有加，會發生什麼事？**
+你可能會不小心「多載 (Overload)」了方法，而不是「覆寫 (Override)」。
+
+```java
+public class Bigram {
+    private final char first, second;
+
+    // 慘了！這裡參數型別錯寫成 Bigram，變成了多載！
+    // 集合框架呼叫 equals(Object o) 時根本不會執行到這一段
+    public boolean equals(Bigram b) {
+        return b.first == first && b.second == second;
+    }
+}
+```
+
+如果你有加上 `@Override public boolean equals(Bigram b)`，編譯器會立刻賞你一個大紅字，告訴你：「父類別根本沒有這個方法讓你覆寫！」，幫你在一秒鐘內抓出這個可能找上幾天的隱形 Bug。
+
+## 8. 了解標記介面與標記註解的差異
+
+所謂的標記介面 (Marker Interface)，就是**裡面完全沒有任何方法的介面**，純粹用來「標示」實作它的類別具有某種屬性。最著名的例子就是 `java.io.Serializable`。
+
+**什麼時候該用「標記介面」，什麼時候該用「標記註解」？**
+
+- **如果標記的對象是類別或介面，且你想在編譯期就透過型別檢查抓出錯誤：** 請使用 **標記介面**。因為介面可以作為型別定義，你可以在方法的參數聲明 `public void serialize(Serializable o)`，編譯器會幫你檢查。
+- **如果標記的對象是方法或欄位（不是類別），或是需要傳遞額外屬性：** 請使用 **標記註解 (Annotations)**（例如 `@Autowired` 或 `@Test`）。
