@@ -1,0 +1,18 @@
+---
+title: 'ORM 架構下的物件職責：別再把 PO 當 DTO 傳了'
+date: '2026-03-21'
+tags: ['Java', 'Spring Boot', 'ORM', 'Architecture']
+draft: false
+summary: '在 ORM 架構中，把資料庫 Entity 直接丟給前端是個災難。這篇釐清 PO、DTO、VO、DAO 的職責劃分，幫你的系統有效解耦。'
+---
+
+在 ORM（如 Hibernate 或 Spring Data JPA）的架構中，為了有效解耦系統，我們必須嚴格區分不同生命週期的資料物件。如果偷懶直接把資料庫的 Entity 丟到 Controller 傳給前端，不僅容易外洩敏感欄位，日後改 DB 欄位時前端 API 也會跟著大爆炸。
+
+簡單釐清這四種物件的職責：
+
+- **PO (Persistent Object)**：直接對應資料庫 Table 的 Java 物件。它的生命週期跟著 ORM 框架走，屬性跟資料表欄位一模一樣。
+- **DTO (Data Transfer Object)**：用來在系統或服務之間傳輸資料。它的重點是「精簡」，只包裝必要的資訊，絕對避免把 DB 全欄位暴露給外部。
+- **VO (Value Object)**：為了 UI 呈現或特定業務邏輯運算存在的物件。它非常「抽象」，可能是好幾個 PO 或 DTO 拼湊加工出來的結果，完全為當前的畫面需求服務。
+- **DAO (Data Access Object)**：負責處理資料庫互動的邏輯物件。它把底層寫 SQL 或抓資料的細節封裝起來，然後把查到的結果包裝成 PO 丟給業務層。
+
+**結論：** 確保各層級職責單一，該轉 DTO 就乖乖轉，這是保護系統架構不被 DB 實作細節綁架的底線。

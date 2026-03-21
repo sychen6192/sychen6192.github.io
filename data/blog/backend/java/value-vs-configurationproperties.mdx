@@ -1,0 +1,41 @@
+---
+title: 'Spring Boot 設定檔注入：@Value vs @ConfigurationProperties'
+date: '2026-03-21'
+tags: ['Java', 'Spring Boot', 'Configuration', 'BestPractices']
+draft: false
+summary: '設定檔屬性越來越多怎麼辦？這篇比較 @Value 與 @ConfigurationProperties 的實戰選擇，教你如何優雅地綁定結構化設定。'
+---
+
+在 Spring Boot 讀取 `application.yml` 設定時，通常有兩種選擇：
+
+## `@Value`：單打獨鬥快槍手
+
+原生註解，適合讀取一兩個簡單字串或數字。支援 `${}` 語法跟預設值。
+
+```java
+@Value("${my.app.timeout:3000}")
+private int timeout;
+```
+
+@ConfigurationProperties：打群架最佳解
+當設定檔包含 List、Map 或多層級屬性時，用 @Value 會讓 Code 變超醜。這時直接把整組設定對應到 POJO 上。
+
+```java
+@Component
+@ConfigurationProperties(prefix = "app.database")
+public class DatabaseProperties {
+    private String url;
+    private List<String> ips; // 自動映射 YAML 裡的陣列！
+
+    // 記得加 Getter/Setter
+}
+```
+
+該怎麼選？
+寬鬆綁定 (Relaxed Binding)： @Value 不支援，寫死什麼就是什麼。@ConfigurationProperties 支援，YAML 寫 first-name，Java 寫 firstName 也能通。
+
+複雜類型 (List/Map)： @Value 解析極度困難，@ConfigurationProperties 原生完美映射。
+
+IDE 提示： 定義好 Properties 後，打 YAML 會有 Auto-complete 提示。
+
+實戰規範： 只讀一個值用 @Value。超過三個相關聯的值，或是遇到 List 結構，請無條件重構成 @ConfigurationProperties。

@@ -1,0 +1,23 @@
+---
+title: 'JPA 幽靈更新：誤觸 Dirty Checking 導致非預期改 DB'
+date: '2026-03-21'
+tags: ['Java', 'Spring Boot', 'JPA', 'Hibernate', 'Bugfix']
+draft: false
+summary: '明明沒呼叫 save()，資料庫的資料卻莫名其妙被改了？帶你還原誤觸 JPA 髒檢查 (Dirty Checking) 的案發現場與防禦解法。'
+---
+
+在 Spring Boot 專案裡，最容易讓人 Debug 到懷疑人生的就是「非預期寫入」。明明只是撈資料出來做個字串處理（例如把 Email 打星號），也沒呼叫 `save()`，結果 DB 裡的真實資料卻被覆寫了。
+
+## 為什麼會發生幽靈更新？
+
+在 `@Transactional` 的生命週期內，任何撈出來的 Entity 都處於 **Managed (被託管)** 狀態。Hibernate 會在背後保留一份物件快照（Snapshot）。
+
+當 Transaction 結束時，Hibernate 會自動比對物件狀態，這機制叫 **Dirty Checking (髒檢查)**。只要它發現你對 Entity `set` 過任何屬性（Dirty），就會強制觸發自動更新，發出 `UPDATE` 語法。
+
+## 怎麼防範？
+
+有三種常見的防禦機制：
+
+1. **嚴格落實 DTO 轉換 (大推)：** 永遠不要修改 Managed Entity。只要是為了畫面呈現要改數值，先轉成 DTO 再去改 DTO，Entity 保持原樣。
+2. **強制宣告 Transaction 為唯讀：** 如果這支 API 只有查詢，務必在 Service 加上 `@Transactional(readOnly = true)`。這樣 Hibernate 就不會建快照，你怎麼 set 都不會觸發更新。
+3. **避開寫法陷阱：** 用 `findBy...` 撈資料，底層自帶 readOnly 保護；但如果你自己寫 `@Query`，預設是沒有強制唯讀保護的，極易觸發幽靈更新。

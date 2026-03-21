@@ -1,0 +1,25 @@
+---
+title: 'MapStruct 遇到 boolean 的 is 前綴直接失效？'
+date: '2026-03-21'
+tags: ['Java', 'Spring Boot', 'MapStruct', 'Lombok', 'Bugfix']
+draft: false
+summary: 'MapStruct 跟 Lombok 搭配使用時，如果 boolean 欄位以 is 開頭，很容易在轉檔時默默變成 false。這篇來拆解這個隱藏地雷。'
+---
+
+最近踩到一個 MapStruct 跟 Lombok 搭配使用的大坑。
+
+如果你的 Source (Entity) 有個 boolean 欄位叫 `isSuccess`，Target (DTO) 也有個 `isSuccess`，轉檔時很容易直接失效，DTO 拿到的永遠是 `false` 或 `null`。最瞎的是，**整個過程編譯完全不會報錯**。
+
+## 到底發生什麼事？
+
+這個雷是 **JavaBeans 規範** 跟 **MapStruct 命名策略** 衝突造成的。
+
+1. Lombok 針對 `boolean isActive;` 產生的 Getter 會是 `isActive()`，而不是 `getIsActive()`。
+2. MapStruct 去讀 `isActive()` 時，按照 JavaBeans 規範，它會推斷這屬性真名叫 `active` (拔掉 is)。
+3. MapStruct 轉頭看 DTO，發現目標叫 `isActive`，但它手上只有推斷出來的 `active`。找不到對應名稱，它就直接略過映射，默默塞預設值。
+
+## 怎麼解？
+
+- **解法一 (在 Mapper 暴力指定)：** 直接在 `@Mapping` 裡面寫死對應關係。注意 `source` 要寫被拔掉 is 的名字！
+  `@Mapping(source = "active", target = "isActive")`
+- **解法二 (治本寫法)：** POJO 裡的布林值，**一律不要加 `is` 前綴。** 把 `boolean isSuccess;` 改成 `boolean success;`，這樣 Lombok 產生 `isSuccess()`，MapStruct 推斷出 `success`，完美對應 DTO 上的 `success`，不用多寫任何 Code 就能解決！

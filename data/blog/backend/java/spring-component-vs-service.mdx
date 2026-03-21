@@ -1,0 +1,19 @@
+---
+title: 'Spring 核心：@Component 跟 @Service 到底差在哪？'
+date: '2026-03-21'
+tags: ['Java', 'Spring Boot', 'Architecture']
+draft: false
+summary: '別再全部無腦掛 @Component 了。搞懂 Spring 分層註解背後的語意與附加特權，找回被你遺忘的架構保護傘。'
+---
+
+很多新手為了省事，常常把所有類別全部掛上 `@Component`，卻忽略了 Spring 設計「分層註解」背後的深意。
+
+其實 `@Service`、`@Repository`、`@Controller` 底層都是 `@Component`，它們目標都是讓 IoC 容器掃描並管理 Bean。但掛上不同的「職稱」，會獲得不同的系統特權：
+
+- **`@Component`：** 最基礎的 Bean 定義。適合工具類或無法歸類的功能。
+- **`@Service`：** 處理業務邏輯。目前功能跟 Component 一樣，但語意明確，**非常方便 AOP 切入**（例如設定統一攔截 Service 層做 Log）。
+- **`@Repository`：** 處理資料存取。特權是 **「自動轉換資料庫異常」**。它會攔截底層難懂的 `SQLException`，轉換成 Spring 的 `DataAccessException`，保護業務層不被底層驅動污染。
+- **`@RestController`：** 處理 API 請求。特權是自帶 `@ResponseBody`，自動把回傳的 Java 物件序列化成 JSON。
+
+**為什麼不該全用 `@Component`？**
+技術上可以，但架構上絕對不要。全部混用會破壞 DDD 可讀性、讓 AOP 規則異常難寫，甚至讓你失去 `@Repository` 內建的例外轉換保護傘。
