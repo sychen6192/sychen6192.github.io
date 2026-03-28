@@ -6,7 +6,9 @@ tags: ['Java', 'Backend', 'Effective Java', 'Enum', 'Annotation']
 summary: 'Java 的 Enum 不只是常數，而是完整的類別。掌握它，能讓你的程式碼可讀性與安全性大幅提升。'
 ---
 
-# Effective Java 實戰筆記 ：列舉與註解
+**目標讀者**：習慣用 `int` 常數或字串常數來表示狀態的 Java 工程師，想改善程式碼的可讀性與型別安全
+**先備知識**：了解 Java `enum`、`interface` 的基本語法，熟悉 `Map`、`Set` 的使用
+**學習成果**：能用 Enum 正確封裝狀態與行為，善用 `EnumSet`/`EnumMap`，並了解標記介面與標記註解的正確使用時機
 
 在早期的 Java 或其他程式語言中，我們常常會宣告一堆 `public static final int` 來代表某些狀態或類別。但在現代 Java 開發中，這種做法已經過時了。
 
@@ -182,3 +184,11 @@ public class Bigram {
 
 - **如果標記的對象是類別或介面，且你想在編譯期就透過型別檢查抓出錯誤：** 請使用 **標記介面**。因為介面可以作為型別定義，你可以在方法的參數聲明 `public void serialize(Serializable o)`，編譯器會幫你檢查。
 - **如果標記的對象是方法或欄位（不是類別），或是需要傳遞額外屬性：** 請使用 **標記註解 (Annotations)**（例如 `@Autowired` 或 `@Test`）。
+
+---
+
+> **Effective Java 系列：**
+> - [讀書筆記總目錄](/blog/backend/effective-java/table-of-contents)
+> - **上一篇**：[泛型的安全防線與進階設計](/blog/backend/effective-java/chapter5)
+> - **本篇**：[列舉與註解](/blog/backend/effective-java/chapter6)
+> - **下一篇**：[優雅駕馭例外處理](/blog/backend/effective-java/chapter9)
