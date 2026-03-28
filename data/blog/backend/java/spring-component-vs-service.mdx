@@ -6,6 +6,12 @@ draft: false
 summary: '別再全部無腦掛 @Component 了。搞懂 Spring 分層註解背後的語意與附加特權，找回被你遺忘的架構保護傘。'
 ---
 
+**目標讀者**：Spring Boot 入門到中階的工程師，習慣全部掛 `@Component` 的人
+**先備知識**：了解 Spring IoC 容器與 Bean 的基本概念
+**學習成果**：理解 `@Component`、`@Service`、`@Repository`、`@RestController` 的語意差異與各自的「特權」
+
+---
+
 很多新手為了省事，常常把所有類別全部掛上 `@Component`，卻忽略了 Spring 設計「分層註解」背後的深意。
 
 其實 `@Service`、`@Repository`、`@Controller` 底層都是 `@Component`，它們目標都是讓 IoC 容器掃描並管理 Bean。但掛上不同的「職稱」，會獲得不同的系統特權：

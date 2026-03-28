@@ -9,6 +9,12 @@ authors: ['default']
 layout: PostLayout
 ---
 
+**目標讀者**：購買了 ZimaBoard 216 或類似 x86 軟路由設備，想刷入 OpenWrt 並全面改造的玩家
+**先備知識**：基本的 Linux/SSH 操作能力，了解路由器的 DNS、DHCP 概念
+**學習成果**：完整完成 OpenWrt 25.12 APK 版的安裝、eMMC 擴容、台灣鏡像源切換、AdGuard Home 部署與 Port 53 移交，避開所有已知的常見坑
+
+---
+
 ## 📌 前言與架構考量
 
 ZimaBoard 216 搭載 Celeron N3350 與雙網路孔，擁有強大的 x86 擴充性，是做為家庭網路核心的絕佳硬體。但在 2GB 記憶體的硬傷下，若強行運行 PVE 等虛擬化系統來跑 All-in-One，光是底層就會吃掉大半資源。因此，**直接裸機 (Bare Metal) 刷入官方原版 OpenWrt，是榨乾這台機器的最佳解法**。

@@ -6,6 +6,12 @@ draft: false
 summary: '深入探討 Apache Kafka 的核心架構，包含 Topic、Partition、Producer 與 Consumer 的運作機制，以及 Broker 叢集的高可用性設計與基礎 CLI 操作指南。'
 ---
 
+**目標讀者**：後端工程師，評估或初學 Apache Kafka 架構，需要掌握核心概念
+**先備知識**：了解基本的 Producer/Consumer 訊息佇列概念，知道什麼是分散式系統
+**學習成果**：掌握 Kafka 的 Topic/Partition/Offset 設計邏輯、Consumer Group 的 Offset 管理機制、Broker 高可用架構（Replication/ISR），以及基礎 CLI 操作
+
+---
+
 ## 1. 核心資料結構：Topics, Partitions 與 Offsets
 
 ![Kafka Core Architecture](/static/images/blog/kafka/kafka-core-architecture.png)
