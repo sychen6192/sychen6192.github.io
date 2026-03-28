@@ -1,0 +1,284 @@
+---
+title: 'Claude Code CLI 實戰：讓 AI 幫你做 Code Review 的完整工作流'
+date: '2026-03-28'
+tags: ['Claude', 'CLI', 'CodeReview', 'DevTools', 'Git', 'Productivity']
+draft: false
+summary: '把 PR diff 貼給 ChatGPT，跟真正用 Claude Code 做 Code Review 是兩回事。本文從 DoD 文件設計、單檔 Review 到 Git Diff 全自動化，手把手建立工程師等級的 AI Review 工作流。'
+authors: ['Sy Chen']
+---
+
+[前幾篇](/blog/ai/best-practice)整理了 Claude Code 的操作技巧，本篇進入大家最期待的實戰應用：**讓 AI 幫你做 Code Review**。
+
+在講流程之前，先釐清一個根本差異。
+
+## 把 diff 貼給 ChatGPT，跟真正的 AI Code Review 有什麼不同？
+
+| 方式 | ChatGPT / 對話式 AI | Claude Code Agent |
+|------|-------------------|-----------------|
+| 看到的範圍 | 你貼的那幾行 | 整個 Repo 的全局上下文 |
+| 能追蹤引用嗎 | ❌ 無法追蹤 import / 呼叫鏈 | ✅ 用 `Grep` / `Glob` 自行追蹤 |
+| 能按你的 DoD 檢查嗎 | 看你有沒有貼進去 | ✅ 常駐在 `CLAUDE.md` |
+| 輸出品質 | 通用建議，常流於表面 | 針對你的 Repo 架構給出具體行號 |
+
+差別不在 AI 本身，在於**它能不能主動去看完整脈絡**。
+
+---
+
+## 步驟一：準備你的 DoD 文件
+
+DoD（Definition of Done）是 Review 的標準；沒有標準，AI 只能給你通用的「變數命名要清楚」之類的廢話。
+
+把你們團隊的標準寫進 `CLAUDE.md`（放在 Repo 根目錄），Claude Code 每次啟動都會自動讀取。
+
+**`CLAUDE.md` Review 區塊範例：**
+
+```markdown
+## Code Review 標準 (DoD)
+
+### 必查項目
+- [ ] 所有對外 API 的 Response 是否包在 `ApiResponse<T>` wrapper？
+- [ ] Service 層有沒有直接呼叫 Prisma（應只在 Repository 層）？
+- [ ] 新增 endpoint 是否同步更新了 `src/openapi/schemas/`？
+- [ ] 有沒有把 secret / key 硬編碼在程式碼裡？
+
+### 效能查核
+- [ ] 迴圈裡有沒有 N+1 Query？
+- [ ] 有沒有在 React Component render 裡做高成本運算（應 memoize）？
+
+### 錯誤處理
+- [ ] async function 有沒有 try/catch 或 .catch()？
+- [ ] 錯誤訊息有沒有洩漏 stack trace 給外部（prod 環境）？
+```
+
+寫 DoD 的原則和[上一篇提到的](/blog/ai/best-practice)一樣：**只寫你們專案特有的規則**。通用 Best Practice 它早就知道了。
+
+---
+
+## 步驟二：單一檔案 Review
+
+最基本的場景：你剛寫完一個 Service，想在 commit 前讓它掃一遍。
+
+```bash
+cd /path/to/your/project
+claude
+```
+
+進入 Claude Code 後輸入：
+
+```text
+> 請 Review @src/services/paymentService.ts
+  根據 CLAUDE.md 裡的 DoD 標準逐條檢查，
+  用條列式回報問題，每個問題請附上行號與修改建議。
+  如果需要追蹤它呼叫的其他函式，請自行去讀相關檔案。
+```
+
+**關鍵句：「如果需要追蹤它呼叫的其他函式，請自行去讀相關檔案。」**
+
+這句話會觸發它的 Agent 行為——它不會只看那一個檔案，而是主動用 `Read` 工具去追蹤整條呼叫鏈，確認上下游邏輯是否一致。沒有這句話，它很可能只做表面的語法掃描。
+
+---
+
+## 步驟三：根據 Git Diff 做 PR Review
+
+修改橫跨多個檔案時，與其一個個餵給它，不如直接丟 Git Diff。
+
+### 方法 A：互動式（推薦）
+
+在 Claude Code 互動介面裡，用 `!` 前綴直接執行 git 指令並帶入結果：
+
+```text
+> !git diff main...HEAD
+```
+
+它會直接讀取 diff 輸出（作為你的訊息內容），然後：
+
+```text
+> 以上是我這個 branch 相對於 main 的所有修改。
+  請根據 CLAUDE.md 的 DoD 標準做完整 Code Review。
+  如果 diff 裡的程式碼引用了未修改的函式，請自行追蹤原始碼再下結論，不要猜。
+  輸出格式：
+  - 嚴重性（Critical / Warning / Suggestion）
+  - 檔案路徑 + 行號
+  - 問題描述
+  - 建議的修改方式
+```
+
+### 方法 B：管線式（非互動，適合 CI 腳本）
+
+```bash
+git diff main...HEAD | claude -p "
+根據以下 Code Review 標準做檢查：
+1. 有沒有直接在 Service 層呼叫 Prisma？
+2. async function 是否都有錯誤處理？
+3. 有沒有硬編碼的 secret？
+
+用條列式回報問題，格式：[嚴重性] 檔案:行號 - 說明
+"
+```
+
+`-p` 模式讓它執行完就退出，適合塞進 CI Pipeline 或 Git Hook。
+
+---
+
+## 步驟四：整合到 Git Pre-push Hook（選配）
+
+想讓每次 `git push` 前自動觸發 Review？把它寫進 Git Hook。
+
+在 Repo 根目錄建立 `.git/hooks/pre-push`：
+
+```bash
+#!/bin/bash
+
+# 取得目前 branch 相對於 main 的 diff
+DIFF=$(git diff main...HEAD)
+
+if [ -z "$DIFF" ]; then
+  echo "No changes to review."
+  exit 0
+fi
+
+echo "🔍 Running AI Code Review..."
+
+REVIEW=$(echo "$DIFF" | claude -p "
+你是一個嚴格的 Code Reviewer。
+請根據以下規則快速掃描，只回報 Critical 等級的問題（如 security issue、明顯 bug、architectural violation）。
+如果沒有 Critical 問題，只回覆 'LGTM'。
+
+規則：
+- Service 層不可直接呼叫 Prisma，只能透過 Repository 層
+- 禁止硬編碼任何 API key 或 secret
+- async function 必須有錯誤處理
+")
+
+echo "$REVIEW"
+
+# 如果回報有 Critical 問題，讓 push 失敗
+if echo "$REVIEW" | grep -qi "critical\|CRITICAL"; then
+  echo ""
+  echo "❌ AI detected critical issues. Please fix before pushing."
+  exit 1
+fi
+
+echo "✅ No critical issues found."
+exit 0
+```
+
+```bash
+chmod +x .git/hooks/pre-push
+```
+
+> **注意：** `.git/hooks/` 不會被 git 追蹤，如果要讓整個團隊使用，改放在 `.githooks/` 目錄並在 `CLAUDE.md` 或 README 說明需要執行 `git config core.hooksPath .githooks`。
+
+---
+
+## 常用 Review Prompt 模板
+
+以下幾個場景的 Prompt 可以直接複製使用：
+
+### Security Review
+
+```text
+請針對 @src/api/ 目錄做安全性審查，重點檢查：
+1. SQL Injection / NoSQL Injection 風險
+2. 未驗證的使用者輸入直接進 DB Query
+3. 過度暴露的 API endpoint（缺少 auth middleware）
+4. 敏感資料（email, token）是否出現在 log 裡
+
+每個問題請附上檔案路徑、行號，以及攻擊情境描述。
+```
+
+### Performance Review
+
+```text
+請分析 @src/repositories/ 底下的 DB Query 模式，找出潛在的 N+1 Query 問題。
+對每個可疑的查詢，請說明：
+1. 在什麼情況下會觸發 N+1
+2. 建議用哪種方式改寫（eager loading / DataLoader / 批次Query）
+請自行追蹤呼叫這些 Repository 的 Service 層，確認實際的呼叫頻率。
+```
+
+### Refactor 前的影響範圍評估
+
+```text
+我打算把 @src/utils/legacyAuth.ts 換成 @src/services/authService.ts。
+請先不要改任何程式碼。
+給我：
+1. 所有直接 import legacyAuth 的檔案清單（請用 grep 工具搜尋）
+2. 間接依賴路徑（A 呼叫 B，B 才呼叫 legacyAuth）
+3. 預估修改工作量（小 / 中 / 大）與建議的遷移順序
+```
+
+---
+
+## 讓 Review 結果更有用的技巧
+
+### 要求分嚴重性輸出
+
+不加嚴重性分級，它會把「變數命名可以更清楚」和「這裡有 SQL Injection 漏洞」混在一起，你不知道要先看哪個。
+
+在 Prompt 結尾加上：
+
+```text
+輸出格式：
+🔴 Critical（必修，阻擋 merge）
+🟡 Warning（強烈建議修改）
+🔵 Suggestion（可改可不改的風格建議）
+```
+
+### 叫它估計修改時間
+
+```text
+每個 Critical / Warning 問題，請同時估計修復所需時間（分鐘）。
+```
+
+這在排工作優先序時很有用，特別是接近 release 時。
+
+### 限制它的行動範圍
+
+```text
+只 Review 這次 diff 修改到的檔案，不要主動去看其他沒改到的檔案。
+```
+
+反過來也可以用——當你只想做快速掃描，不要讓它花大量 Token 追蹤整條呼叫鏈時，明確限制範圍可以省很多成本。
+
+---
+
+## 限制與注意事項
+
+### AI Review 不能取代人工 Review
+
+AI 擅長找：**可量化的問題**（N+1、缺少 error handling、不符合 DoD checklist）。
+
+AI 不擅長：**需要業務脈絡的判斷**（這個 API 設計是否符合產品方向、這個抽象層是否值得增加複雜度）。
+
+建議的流程：
+
+```
+AI Review（機械式 checklist）→ 作者自查 → 人工 Review（業務/架構判斷）→ merge
+```
+
+讓 AI 把那些「明顯應該修的」先過濾掉，人工 Review 的時間才能真正聚焦在有價值的討論上。
+
+### 大型 diff 的 Token 成本
+
+超過 500 行的 diff 可以考慮拆成多個 Review Session，每個 Session 專注在一個模組或一類問題（例如先做 Security，再做 Performance），避免單次 Token 消耗過高且準確度下降。
+
+---
+
+## 結語
+
+一個完整的 AI Code Review 工作流，核心其實只有三件事：
+
+1. **給它標準**：一份好的 `CLAUDE.md` DoD 讓它知道要檢查什麼
+2. **給它上下文**：讓它自己追蹤呼叫鏈，而不是只看你餵的那幾行
+3. **結果分級**：嚴重性分類讓 Review 結果可直接行動，而不是一堆待判斷的建議
+
+把這套流程跑熟之後，你會發現 「看起來沒問題但其實有洞」的 PR 少了很多——不是因為 AI 比人聰明，而是因為機械式的 checklist 就是不會漏。
+
+---
+
+> **本系列文章：**
+> 1. [Mac 安裝與 OpenRouter 串接](/blog/ai/claude-cli-setup)
+> 2. [Slash 指令與 Skills 實戰](/blog/ai/skills-slash)
+> 3. [從大神偷學的 5 個 Best Practices](/blog/ai/best-practice)
+> 4. **Code Review 完整工作流（本篇）**
