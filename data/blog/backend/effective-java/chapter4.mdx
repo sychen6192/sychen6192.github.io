@@ -6,7 +6,9 @@ tags: ['Java', 'Backend', 'Effective Java', 'Design Patterns', 'Architecture']
 summary: '類別與介面是 Java 系統架構的基石，良好的設計能讓程式碼保持彈性與高內聚力。'
 ---
 
-# Effective Java 實戰筆記：類別與介面的設計
+**目標讀者**：正在設計 Java 系統架構、想寫出高內聚低耦合程式碼的工程師
+**先備知識**：熟悉 OOP 的繼承與介面概念，了解 `final`、`private` 等存取修飾符的作用
+**學習成果**：理解最小化曝露、不可變物件、合成優於繼承等架構準則，並能應用於日常設計決策
 
 類別與介面是 Java 系統架構的基石。在這個章節中，Joshua Bloch 傳授了許多關於封裝、繼承與介面設計的黃金守則。你會發現，許多我們初學時習以為常的物件導向習慣（例如無腦使用繼承），其實在大型專案中可能會成為災難。
 
@@ -324,3 +326,11 @@ Java 編譯器其實允許你在同一個 `.java` 檔案中定義多個頂層類
 如果你在 `Main.java` 裡面同時定義了 `class A` 跟 `class B`，而專案中剛好又有其他的檔案也定義了 `A` 或 `B`。編譯器並不會立刻報錯，而是會**根據編譯器吃檔案的順序，決定覆蓋哪一個實作**！這種在編譯時期偷偷切換行為的 Bug 幾乎無法靠肉眼除錯。
 
 ✅ **唯一正解：** 永遠保持「一個 `.java` 檔案，只裝一個頂層類別」。如果兩個類別真的高度關聯，請使用上一點提到的**靜態成員類別 (Static Member Class)** 將它們包在一起。
+
+---
+
+> **Effective Java 系列：**
+> - [讀書筆記總目錄](/blog/backend/effective-java/table-of-contents)
+> - **上一篇**：[所有物件的通用方法](/blog/backend/effective-java/chapter3)
+> - **本篇**：[類別與介面的設計](/blog/backend/effective-java/chapter4)
+> - **下一篇**：[泛型的安全防線與進階設計](/blog/backend/effective-java/chapter5)

@@ -6,7 +6,9 @@ tags: ['Java', 'Backend', 'Effective Java', 'Generics']
 summary: '泛型的出現，是為了把執行期的崩潰，提前變成編譯期的錯誤。'
 ---
 
-# Effective Java 實戰筆記：泛型的安全防線與進階設計
+**目標讀者**：使用 Java 泛型集合（List、Map、Set）但對「unchecked warning」感到困惑的後端工程師
+**先備知識**：了解 Java 基礎型別系統與集合框架（Collections），知道什麼是繼承與多型
+**學習成果**：掌握 Raw Type 的危害、PECS 萬用字元原則，能判斷何時偏好 List 勝於陣列
 
 在 Java 1.5 引入泛型之前，從集合 (Collections) 中讀取出來的物件都必須手動強制轉型。萬一不小心塞錯型別，系統在編譯階段完全不會察覺，直到上線執行時才會無情地噴出 `ClassCastException` 導致系統崩潰。
 
@@ -198,3 +200,11 @@ int year = f.getFavorite(Integer.class);
 ```
 
 這就是泛型的終極威力！透過將泛型從「容器本身」轉移到「容器的 Key」，我們創造出了一個極具彈性且絕對安全的超級黑洞。
+
+---
+
+> **Effective Java 系列：**
+> - [讀書筆記總目錄](/blog/backend/effective-java/table-of-contents)
+> - **上一篇**：[類別與介面的設計](/blog/backend/effective-java/chapter4)
+> - **本篇**：[泛型的安全防線與進階設計](/blog/backend/effective-java/chapter5)
+> - **下一篇**：[列舉與註解](/blog/backend/effective-java/chapter6)
