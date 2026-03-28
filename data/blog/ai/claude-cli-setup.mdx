@@ -1,0 +1,161 @@
+---
+title: 'Claude Code CLI 實戰指南：如何在 Mac 串接 OpenRouter'
+date: '2026-03-28'
+tags: ['Claude', 'CLI', 'OpenRouter', 'macOS', 'DevTools']
+draft: false
+summary: '記錄在 Mac 環境安裝 Claude Code，並避開官方設定陷阱，成功掛載 OpenRouter 進行模型切換與成本控管的完整步驟。'
+authors: ['Sy Chen']
+---
+
+在 AI 輔助開發的時代，頻繁在 IDE、終端機和瀏覽器之間切換是一件非常打斷心流的事。為了解決這個痛點，Anthropic 推出了官方的命令列工具 **Claude Code**。然而，官方預設流程會把你鎖定在 Anthropic 的 API，既不能換模型、也難以集中管理預算。
+
+本文記錄如何透過 **OpenRouter** 當作中間層，一次解決「模型供應商綁定」與「多 Project 帳號管理」兩大痛點，並繞過環境變數設定的常見暗坑。
+
+> **本系列文章：**
+> 1. **Mac 安裝與 OpenRouter 串接（本篇）**
+> 2. [Slash 指令與 Skills 實戰](/blog/ai/skills-slash)
+> 3. [從大神偷學的 5 個 Best Practices](/blog/ai/best-practice)
+
+---
+
+## 什麼是 Claude Code (CLI)？
+
+Claude Code 不單純只是一個把 ChatGPT/Claude 搬進終端機的「對話視窗」，它是一個具備 **Agent（代理）能力**的開發助手。對於工程師來說，核心殺手級應用在於：
+
+1. **直接讀寫檔案系統**：自行掃描專案目錄、理解上下文，甚至直接建立或修改程式碼，省去複製貼上的麻煩。
+2. **執行系統指令**：在背後幫你跑 `rg` (ripgrep) 搜尋變數引用、執行 `git diff` 看變更，甚至直接替你跑 `npm run test` 確認修復是否成功。
+3. **無縫 Code Review**：不用離開 Terminal，直接讓它掃描剛寫好的分支，並根據團隊的 DoD (Definition of Done) 挑出 Code Smell。
+
+簡單來說，它把大腦（LLM）與你的開發環境（Terminal + File System）直接打通了。
+
+### 為什麼要掛載 OpenRouter？
+
+| 方案 | 模型選擇 | 成本控管 | 換模型難度 |
+|------|---------|---------|----------|
+| Anthropic 直連 | 僅 Claude 系列 | 需進 Console 查看 | 困難 |
+| **OpenRouter（本文）** | 100+ 個模型 | 單一帳號集中管理 | 改一個變數即可 |
+
+---
+
+## 步驟一：安裝 Claude Code
+
+建議直接使用 npm 進行全域安裝，方便後續版本控管：
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+安裝完成後，輸入 `claude --version` 確認版本號是否正常輸出。
+
+---
+
+## 步驟二：清除舊有認證狀態
+
+**這步非常關鍵，新手最常在這裡踩坑。**
+
+如果之前已透過瀏覽器登入過 Anthropic 官方帳號，系統快取的舊 Token 會直接覆蓋後續的 OpenRouter 設定，導致請求繞過 OpenRouter 直接打到 Anthropic。請先進入互動介面登出：
+
+```bash
+claude
+# 進入互動介面後輸入：
+/logout
+```
+
+登出成功後再 `/exit` 退出，確保本機端沒有殘留的 Anthropic Session Token。
+
+---
+
+## 步驟三：掛載 OpenRouter 環境變數（核心設定）
+
+OpenRouter 在底層實作了一層「Anthropic API 相容層」，讓 Claude Code 誤以為自己仍在與 Anthropic 溝通。設定的**三個關鍵點**：
+
+> **⚠️ 為什麼要寫在 `~/.zshrc` 而非 `.env`？**
+> Claude Code 是獨立於 Node.js 專案之外的全域 CLI 工具，它不會讀取專案目錄下的 `.env` 檔案。Shell Profile 是唯一能確保每次啟動都能讀取到的設定位置。
+
+```bash
+nano ~/.zshrc
+```
+
+加入以下變數：
+
+```bash
+# 1. 填入你的 OpenRouter API Key（從 openrouter.ai/keys 取得）
+export OPENROUTER_API_KEY="sk-or-v1-你的金鑰"
+
+# 2. 指定 Base URL
+#    ⚠️ 注意：結尾絕對不能有 /v1，否則路徑會變成 /v1/v1/... 噴 404
+export ANTHROPIC_BASE_URL="https://openrouter.ai/api"
+
+# 3. Claude Code 吃的是 ANTHROPIC_AUTH_TOKEN，將其指向 OpenRouter Key
+export ANTHROPIC_AUTH_TOKEN="$OPENROUTER_API_KEY"
+
+# 4. ⚠️ 必須明確將官方 API Key 設為空字串
+#    若未設定，Claude Code 仍會嘗試使用舊的 ANTHROPIC_API_KEY 去打官方端點
+export ANTHROPIC_API_KEY=""
+```
+
+儲存退出後，重新載入設定讓環境變數生效：
+
+```bash
+source ~/.zshrc
+```
+
+---
+
+## 步驟四：配置任務模型路由
+
+Claude Code 有智慧分派機制：它會根據任務複雜度自動挑選適合的模型層級（Opus / Sonnet / Haiku）。由於我們換成了 OpenRouter，需要手動對應 OpenRouter 上的模型名稱：
+
+```bash
+# 複雜架構設計、深度推理、長篇重構
+export ANTHROPIC_DEFAULT_OPUS_MODEL="anthropic/claude-opus-4-5"
+
+# 日常開發、Code Review、重構（最常使用，CP 值最高）
+export ANTHROPIC_DEFAULT_SONNET_MODEL="anthropic/claude-sonnet-4-5"
+
+# 快速補全、格式修整等低複雜度任務
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="anthropic/claude-haiku-4-5"
+
+# 子 Agent（平行任務）使用的模型
+export CLAUDE_CODE_SUBAGENT_MODEL="anthropic/claude-sonnet-4-5"
+```
+
+> **💡 想換成非 Claude 的模型？**
+> 可以試試 `deepseek/deepseek-chat` 來降低成本，但要注意跨廠商模型對 Tool Calling 的 JSON Schema 解析行為不盡相同，複雜的 Agent 任務可能會有預期外的輸出格式。建議先在低風險任務上測試。
+
+再次執行 `source ~/.zshrc` 套用設定。
+
+---
+
+## 步驟五：啟動與驗證
+
+切換到任一專案目錄，啟動 Claude Code：
+
+```bash
+cd /path/to/your/project
+claude
+```
+
+進入互動介面後，輸入以下指令驗證連線狀態：
+
+```text
+> /status
+```
+
+**驗證成功的標誌：**
+輸出中應包含 `Anthropic base URL: https://openrouter.ai/api`，這代表所有 Prompt 都已透過 OpenRouter 轉發，而非直打 Anthropic 端點。
+
+---
+
+## 常見問題排查
+
+| 症狀 | 原因 | 解法 |
+|------|------|------|
+| `401 Unauthorized` | 舊的 Auth Token 殘留 | 重新執行步驟二的 `/logout` |
+| `404 Not Found` | `ANTHROPIC_BASE_URL` 結尾多了 `/v1` | 移除結尾的 `/v1` |
+| 模型名稱錯誤 | OpenRouter 上的模型 ID 格式不同 | 去 [openrouter.ai/models](https://openrouter.ai/models) 確認正確 ID |
+| 回應突然變笨 | 模型路由跑掉 | 執行 `/status` 確認當前模型 |
+
+---
+
+環境準備好後，下一篇我們進入實戰：[Slash 指令與 Skills 完全指南](/blog/ai/skills-slash)。
