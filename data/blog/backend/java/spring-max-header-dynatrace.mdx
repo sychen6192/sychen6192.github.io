@@ -9,9 +9,9 @@ layout: PostLayout
 canonicalUrl:
 ---
 
-**目標讀者**：負責維運 Spring Boot 微服務、使用 Kubernetes + Istio Service Mesh，並整合 Dynatrace / New Relic 等 APM 工具的後端工程師。
-**先備知識**：了解 Spring Boot 基礎配置、HTTP 協定 Headers、Kubernetes Pod 基本概念。
-**學習成果**：掌握「底層 Web Server 靜默拒絕請求」的排查思路，以及 APM Header 疊加造成大小超限的根本原因與解法。
+- **目標讀者**：負責維運 Spring Boot 微服務、使用 Kubernetes + Istio Service Mesh，並整合 Dynatrace / New Relic 等 APM 工具的後端工程師。
+- **先備知識**：了解 Spring Boot 基礎配置、HTTP 協定 Headers、Kubernetes Pod 基本概念。
+- **學習成果**：掌握「底層 Web Server 靜默拒絕請求」的排查思路，以及 APM Header 疊加造成大小超限的根本原因與解法。
 
 ---
 
@@ -76,10 +76,10 @@ UT005006: Connection from /127.0.0.1:53705 terminated as request header was larg
 
 這套微服務架構中有三個角色各自往 Header 塞資料：
 
-| 角色 | 行為 | 影響 |
-|------|------|------|
-| **Spring Boot** | 預設 `max-http-header-size` = 8KB | 設下硬性上限 |
-| **Istio Envoy** | 自動注入 `x-envoy-*`、`x-b3-traceid` 等追蹤標頭 | 固定增加額外負擔 |
+| 角色                    | 行為                                                                       | 影響             |
+| ----------------------- | -------------------------------------------------------------------------- | ---------------- |
+| **Spring Boot**         | 預設 `max-http-header-size` = 8KB                                          | 設下硬性上限     |
+| **Istio Envoy**         | 自動注入 `x-envoy-*`、`x-b3-traceid` 等追蹤標頭                            | 固定增加額外負擔 |
 | **Dynatrace RUM Agent** | 為了串連使用者「連續動作」，在短時間內的第二次請求不斷疊加 `x-dt-...` 標頭 | 第二次請求時爆量 |
 
 三方疊加，在第二次請求時剛好撐破 8192 Bytes 的天花板。Undertow 底層的 `HttpRequestParser` 偵測到超標，為了防止緩衝區溢位攻擊，直接在 TCP 層級切斷連線並回傳 400。放著幾分鐘後能恢復，是因為 Dynatrace 的 User Action Session 過期，Header 長度歸零重置。
