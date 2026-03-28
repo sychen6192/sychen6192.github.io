@@ -1,0 +1,158 @@
+---
+title: 'Claude Code CLI 實戰指南：資深工程師必備的 Slash 指令與 Skills'
+date: '2026-03-28'
+tags: ['Claude', 'CLI', 'Productivity', 'DevTools', 'CodeReview']
+draft: false
+summary: '環境架好後怎麼用最有效率？本篇整理 Claude Code CLI 最實用的斜線指令 (Slash Commands) 與 Agent Skills，教你如何精準控制 Context 並發揮它的最大價值。'
+authors: ['Sy Chen']
+---
+
+[上一篇](/blog/ai/claude-cli-setup)我們搞定了 Claude Code 的 Mac 安裝與 OpenRouter 串接。環境通了之後，接下來就是實戰了。
+
+很多剛接觸 CLI 版本的人，把它當成終端機裡的 ChatGPT，習慣單純的一問一答。但 Claude Code 的核心價值在於它是一個「Agent」——它擁有讀取系統與執行指令的能力，可以主動探索你的專案、執行指令、並根據結果迭代修正。
+
+要真正駕馭這個 Agent，你必須熟練掌握它的 **Slash Commands（斜線指令）**。
+
+---
+
+## 快速參考表
+
+| 指令 | 用途 | 使用時機 |
+|------|------|---------|
+| `/clear` | 清空對話記憶 | 每次切換任務前 |
+| `/compact` | 壓縮對話歷史 | 同一任務對話很長時 |
+| `/status` | 查看連線與模型狀態 | 懷疑模型跑掉時 |
+| `/cost` | 查看本 Session 花費 | 大型任務前後 |
+| `/skills` | 列出可用工具 | 想了解 Agent 能力邊界時 |
+| `/rewind` | 回滾到上一個操作節點 | AI 寫爛、想還原時 |
+| `!<cmd>` | 直接穿透執行 Shell 指令 | 隨時 |
+
+---
+
+## 1. Context 控管：別讓 AI 產生幻覺
+
+在本地端跑 Agent，最大的痛點就是 **Context（上下文）污染**。當你剛修完一個 Component 的 Bug，接著要它去 Review 另一個 API 的邏輯時，如果沒清空記憶，它很容易把兩邊的程式碼搞混，甚至浪費大量 Token 在「回憶」不相關的歷史脈絡。
+
+### `/clear` — 最常用的指令
+
+**功能：** 徹底清空當前對話的所有記憶（不影響 `CLAUDE.md` 的長期設定）。
+
+**黃金規則：** 每次切換任務，第一件事就是 `/clear`。
+
+```text
+> /clear
+```
+
+**反例：** 修完 Auth Bug 後，直接問「幫我 Review 一下 Payment Service」——它會把剛才 Auth 的修改脈絡一起帶進去，輸出的建議會充滿不相關的假設。
+
+### `/compact` — 保留背景知識的折衷方案
+
+**功能：** 把目前的對話歷史「壓縮」成一份精要的摘要，讓 Agent 繼續使用同一個上下文，但釋放 Token 空間。
+
+**使用時機：** 你正在追一個跨多個檔案的複雜 Bug，對話已經很長，但你**不想清空**前幾輪建立的背景知識。
+
+```text
+> /compact
+```
+
+> **`/clear` vs `/compact` 怎麼選？**
+> - 換了新任務 → `/clear`（乾淨開始）
+> - 同一任務但對話太長 → `/compact`（保留脈絡但瘦身）
+
+### `/rewind` — 時光倒流
+
+**功能：** 回滾到上一個操作節點，撤銷 Agent 最後一次的行動（包含檔案修改）。
+
+**使用時機：** 它修壞了某段程式碼，你不想叫它「重寫」（因為錯誤程式碼已經污染了對話記憶），直接回到修改前的乾淨狀態。
+
+```text
+> /rewind
+```
+
+---
+
+## 2. 檢視 Agent 能力邊界：`/skills`
+
+為什麼 Claude Code 比一般問答機器人聰明？因為它底層裝備了各種**工具（Skills）**，讓它可以主動採取行動，而不只是輸出文字。
+
+```text
+> /skills
+```
+
+執行後你會看到 Agent 目前可以調用的工具清單，常見的包括：
+
+| Skill | 功能 | 實際對應的 Shell 操作 |
+|-------|----|-------------------|
+| `Bash` | 執行系統指令 | `npm run build`、`kubectl get pods` |
+| `Grep` / `Glob` | 全域搜尋 | `rg "functionName" src/` |
+| `Read` / `Write` | 讀寫原始碼 | 直接修改你的 `.ts` 檔案 |
+| `Git` | 版本控管操作 | `git diff`、`git log` |
+
+**你不需要手動呼叫 Skill**，只要在 Prompt 裡下達明確目的，它會自己決定用哪個工具。範例：
+
+> 「請幫我找出 `@src/` 底下所有呼叫到 `legacyAuth()` 的地方，評估如果我把它換成 `newAuthService()` 的影響範圍。」
+
+它會自動調用 `Grep` 掃描專案，再用 `Read` 讀取相關檔案，最後給你有依據的分析，而不是憑空猜測。
+
+---
+
+## 3. 系統與成本監控：`/status` 與 `/cost`
+
+掛載了 OpenRouter 之後，監控花費就是日常基本功。
+
+### `/status`
+
+```text
+> /status
+```
+
+輸出包含：目前連線的 Endpoint、使用的 Model 名稱、API Key 的狀態。**當你覺得 AI 的回答突然變笨，先用這個指令確認是不是 Model 跑掉了**，比一直追 Prompt 有效率得多。
+
+### `/cost`
+
+```text
+> /cost
+```
+
+直接印出當前這個 Session 所消耗的 Token 數量與預估花費。在做大型專案的 Code Review 前後各查一次，有助於你評估哪些任務交給 AI 最符合經濟效益——通常「全掃架構」比「回答單一問題」貴 10-20 倍。
+
+---
+
+## 4. 突破次元壁：直接執行 Bash（`!` 前綴）
+
+這雖然不是斜線指令，但絕對是提升開發心流的殺手鐧。
+
+在 `>` 提示字元下，只要以 `!` 開頭，就可以直接穿透到你的宿主機 Shell 執行指令，**完全不需要退出 Claude Code**。
+
+```text
+> !git status
+> !make clean
+> !kubectl get pods -n production
+```
+
+**標準工作流程（Debug Loop）：**
+
+```text
+> 幫我修復 utils/parser.ts 的邊界錯誤
+  [Claude 修改檔案]
+> !npm run test
+  [複製噴出的 Error Log]
+> 看一下這個 log，自己修到全綠：[貼上 log]
+```
+
+這個 `!` 前綴讓你把「AI 修改 → 本地執行 → 看結果 → 繼續修」的迴圈壓縮到同一個終端機視窗裡，不用在視窗間瘋狂切換。
+
+---
+
+## 結語
+
+熟記這幾個維度就夠了：
+
+- **記憶控管**：`/clear` 切換任務、`/compact` 瘦身、`/rewind` 還原
+- **能力邊界**：`/skills` 讓你知道它能做什麼、不能做什麼
+- **成本意識**：`/status` + `/cost` 讓你維持對花費的掌控
+- **無縫執行**：`!` 前綴讓 AI 修改與本地驗證無縫銜接
+
+這幾個指令的組合，就是區分「把 Claude Code 當 ChatGPT 用」與「真正把它當 Agent 用」的分水嶺。
+
+下一篇：[從大神偷學的 5 個 Best Practices](/blog/ai/best-practice)，把以上技巧組合成真正的開發工作流。

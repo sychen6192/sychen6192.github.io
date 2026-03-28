@@ -1,0 +1,133 @@
+---
+title: 'Claude Code CLI 實戰：從大神偷學的 5 個 Best Practices'
+date: '2026-03-28'
+tags: ['Claude', 'CLI', 'BestPractices', 'DevTools', 'Productivity']
+draft: false
+summary: '別把 Claude Code 當成終端機裡的 ChatGPT。本文彙整國外技術社群的最佳實踐，包含 Context 控管、自動驗證、CLAUDE.md 最佳化等高階技巧。'
+authors: ['Sy Chen']
+---
+
+公司開始導入 Claude Code，我花了不少時間爬國外社群。新手與老手的最大差別，不在於 Prompt 寫得多漂亮，而在於**如何控制 AI 的邊界與上下文**，以及何時該讓它跑、何時該踩剎車。
+
+以下整理 5 個公認最高效的 CLI 實戰技巧，從官方文件與社群討論中提煉出來。
+
+---
+
+## 1. 拒絕「廚房水槽」：精準控管 Context
+
+官方特別點名 **Kitchen Sink（廚房水槽）反模式**：在同一個 Session 裡修 Auth、問 DB Schema、又改 UI Component。混雜的 Context 會導致兩個問題：
+
+- **Token 狂飆**：每次呼叫都帶著大量不相關的歷史脈絡
+- **準確度暴跌**：AI 開始把不同模組的邏輯搞混，給出似是而非的建議
+
+**解法：及早停損與重置**
+
+- **無情 `/clear`**：解完一個 Bug 就下 `/clear`，強制洗手。就像每個任務開一張新的便利貼，不要在同一張上面寫十件事。
+- **雙擊 `Esc`（`/rewind`）**：這招超神。如果 Claude 寫爛了，**不要叫它重寫**——錯誤程式碼會污染對話記憶，它很可能以同樣的錯誤思路再寫一遍。連按兩下 `Esc` 或輸入 `/rewind`，直接 Rollback 到上一個正常節點，從乾淨狀態重新出發。
+- **單擊 `Esc`（緊急煞車）**：看到它開始亂改不相關的檔案時，按一下 `Esc` 中斷動作，重新下達更精準的指令。不要讓它跑完再收拾，代價太高。
+
+---
+
+## 2. 逼它先規劃，再動手（Plan before Execute）
+
+資深工程師不會拿到需求就狂敲鍵盤，但 AI 預設就是這樣做的。
+
+處理跨檔案重構或新增功能時，如果讓它直接動手，最常見的結果是：它寫到一半發現架構跑偏，只好一邊修改一邊「填坑」，最後你收到的是一堆補丁邏輯而非乾淨的實作。
+
+**解法：在 Prompt 裡明確限制行動**
+
+> 「請閱讀 `@src/services` 目錄下的業務邏輯。**現在先不要寫任何 code。** 請先給我條列式的重構計畫，列出你打算修改哪些檔案、修改順序為何，以及 Blast Radius（影響範圍）評估。等我說 OK 你再開始。」
+
+這樣做的好處是雙向的：你可以在它動手前發現計畫有誤，而它也因為先讀懂了全局，不會在修改途中突然「發現」漏掉某個相依。
+
+---
+
+## 3. 自動驗證（Trust, but Verify）
+
+「看起來是對的，但跑起來是錯的」是最浪費時間的情況。直接叫 Claude 幫你修 Bug，它給你一段看起來正確的程式碼，你貼上去、執行，還是掛掉——這個來回可以發生三四次。
+
+**你的核心價值在於：教它驗證自己工作的方法。**
+
+**解法：讓它自己跑測試、自己看 Log、自己修**
+
+> 「幫我修復 `@utils/math.ts` 的邊界錯誤。修完後，請**自行執行 `npm run test:unit`**。如果測試沒過，請自己讀 Log 找問題並修正，直到全綠為止再回報結果。」
+
+這個 Prompt 把「修復 → 驗證 → 迭代」的迴圈全交給它，你只需要等最終報告。配合[上一篇的 `!` 前綴技巧](/blog/ai/skills-slash)，它甚至可以在 Claude Code 環境內直接執行測試並回傳 output。
+
+---
+
+## 4. 最佳化你的 `CLAUDE.md`
+
+在專案根目錄放一個 `CLAUDE.md`，Claude Code 每次啟動時會自動讀取，作為這個專案的「永久設定」。但很多人會犯 **Over-specification（過度規格）** 的錯誤，把整本 Clean Code 或 Style Guide 貼進去，結果它每次啟動都要消耗大量 Token 去讀不相關的規則。
+
+**原則：只寫「你們團隊特有的雷點」**
+
+通用的 Best Practice（例如「變數名稱要有意義」）它早就知道了，不需要重複。真正值得寫進 `CLAUDE.md` 的是：
+
+- 這個 Repo 特有的架構慣例
+- 不能踩的歷史遺留地雷
+- 常用的開發指令（它遇到問題時會自己調用）
+
+**範例 `CLAUDE.md`：**
+
+```markdown
+# Project: Payment Service API
+
+## 架構慣例
+- 所有對外的 API Response 必須包在 `ApiResponse<T>` wrapper 裡，不可直接回傳 raw data
+- DB Query 只能放在 `src/repositories/`，Service 層禁止直接調用 Prisma
+- 新增 endpoint 必須同時更新 `src/openapi/schemas/` 下對應的 Schema 檔案
+
+## 歷史地雷
+- `src/utils/legacyAuth.ts` 已棄用，任何修改請改用 `src/services/authService.ts`
+- `UserModel` 中的 `createdAt` 欄位在資料庫層是 UTC，但 API 回傳時必須轉換成 ISO 8601 格式
+
+## 常用指令
+- 執行測試：`pnpm test:watch`
+- 啟動開發環境：`pnpm dev`
+- 型別檢查：`pnpm typecheck`
+```
+
+這份 `CLAUDE.md` 告訴它「這個專案裡什麼是特殊的」，而不是重複它已知的通用原則。
+
+---
+
+## 5. 終端機駭客流：Piping（管線）操作
+
+如果只是想讓它分析一段 Log 或一個 Error Stack，不需要特地開啟一個互動式 Session。善用 Unix Pipe，直接把資料灌給它，用完即走。
+
+**解法：`-p` 參數搭配 Pipe**
+
+當 Server 或 Container 噴錯時，直接在終端機：
+
+```bash
+# 分析 Log 檔
+cat error.log | claude -p "幫我找出導致 OOM 的根本原因，並給出修復建議"
+
+# 分析特定目錄的程式碼結構
+cat src/services/payment.ts | claude -p "這段程式碼有沒有 race condition 的風險？"
+
+# 搭配 kubectl 使用
+kubectl logs pod/api-server-xxx | tail -100 | claude -p "幫我找出最近 100 行 log 中的異常模式"
+```
+
+`-p` 參數讓 Claude Code 進入「單次執行模式」：讀完輸入、給完答案就直接退出，乾淨俐落，不會留下任何 Session 狀態。
+
+---
+
+## 結語
+
+把 Claude Code 當成剛報到的工程師：
+
+- **Plan before Execute**：要他先說計畫，再動手
+- **Trust, but Verify**：教他怎麼驗證自己的工作
+- **Esc 是你的好朋友**：看到它走偏，隨時踩剎車
+
+把這幾招練熟，你的開發心流就不會再被「AI 突然亂改了一堆東西」打斷了。
+
+---
+
+> **本系列文章：**
+> 1. [Mac 安裝與 OpenRouter 串接](/blog/ai/claude-cli-setup)
+> 2. [Slash 指令與 Skills 實戰](/blog/ai/skills-slash)
+> 3. **從大神偷學的 5 個 Best Practices（本篇）**
