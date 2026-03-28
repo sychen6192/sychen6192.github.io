@@ -6,6 +6,12 @@ draft: false
 summary: '設定檔屬性越來越多怎麼辦？這篇比較 @Value 與 @ConfigurationProperties 的實戰選擇，教你如何優雅地綁定結構化設定。'
 ---
 
+**目標讀者**：Spring Boot 工程師，負責管理 `application.yml` 設定檔中的多個屬性
+**先備知識**：了解 Spring Boot 設定檔的基本結構（`application.yml`/`application.properties`）
+**學習成果**：能判斷何時用 `@Value`、何時重構為 `@ConfigurationProperties`，並理解寬鬆綁定的優勢
+
+---
+
 在 Spring Boot 讀取 `application.yml` 設定時，通常有兩種選擇：
 
 ## `@Value`：單打獨鬥快槍手
@@ -17,7 +23,8 @@ summary: '設定檔屬性越來越多怎麼辦？這篇比較 @Value 與 @Config
 private int timeout;
 ```
 
-@ConfigurationProperties：打群架最佳解
+## `@ConfigurationProperties`：打群架最佳解
+
 當設定檔包含 List、Map 或多層級屬性時，用 @Value 會讓 Code 變超醜。這時直接把整組設定對應到 POJO 上。
 
 ```java
@@ -31,11 +38,10 @@ public class DatabaseProperties {
 }
 ```
 
-該怎麼選？
-寬鬆綁定 (Relaxed Binding)： @Value 不支援，寫死什麼就是什麼。@ConfigurationProperties 支援，YAML 寫 first-name，Java 寫 firstName 也能通。
+## 該怎麼選？
 
-複雜類型 (List/Map)： @Value 解析極度困難，@ConfigurationProperties 原生完美映射。
+- **寬鬆綁定 (Relaxed Binding)：** `@Value` 不支援，寫死什麼就是什麼。`@ConfigurationProperties` 支援，YAML 寫 `first-name`，Java 寫 `firstName` 也能通。
+- **複雜類型 (List/Map)：** `@Value` 解析極度困難，`@ConfigurationProperties` 原生完美映射。
+- **IDE 提示：** 定義好 Properties 後，打 YAML 會有 Auto-complete 提示。
 
-IDE 提示： 定義好 Properties 後，打 YAML 會有 Auto-complete 提示。
-
-實戰規範： 只讀一個值用 @Value。超過三個相關聯的值，或是遇到 List 結構，請無條件重構成 @ConfigurationProperties。
+**實戰規範：** 只讀一個值用 `@Value`。超過三個相關聯的值，或是遇到 List 結構，請無條件重構成 `@ConfigurationProperties`。

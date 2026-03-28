@@ -6,6 +6,12 @@ draft: false
 summary: '為什麼自己寫的 UPDATE 語法會噴 TransactionRequiredException？這篇帶你搞懂 Spring Data JPA 的查詢種類與底層交易機制'
 ---
 
+**目標讀者**：在 Spring Data JPA 中自定義 UPDATE/DELETE 查詢卻碰壁的工程師
+**先備知識**：了解 JPA `@Query` 的基本寫法，知道 `@Transactional` 的存在
+**學習成果**：理解 Repository 的 `readOnly` 預設行為，掌握 `@Modifying` + `@Transactional` 的正確組合，以及 `clearAutomatically` 的作用
+
+---
+
 在 Repository 裡，我們常會混用不同種查詢寫法。但只要牽涉到自己寫的 UPDATE/DELETE 語法，就很容易踩到坑。
 
 ## 三種查詢武器

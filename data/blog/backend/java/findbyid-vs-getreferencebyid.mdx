@@ -6,6 +6,12 @@ draft: false
 summary: '你知道只為了設定 Foreign Key 去撈資料庫有多浪費效能嗎？這篇解釋 Eager 與 Lazy 查詢的差異，教你省下不必要的 SELECT。'
 ---
 
+**目標讀者**：使用 Spring Data JPA 的後端工程師，想優化不必要的 DB Query
+**先備知識**：了解 JPA Repository 的基本用法，知道 `SELECT` 語句是有效能代價的
+**學習成果**：能在合適的場景選用 `getReferenceById` 省下不必要的 SELECT 查詢
+
+---
+
 `findById()` 和 `getReferenceById()` 的差異是實務上優化資料庫效能的關鍵技巧。最大的差別在於 **資料庫查詢時機 (Database Hit)**：
 
 - **`findById(id)` (Eager)：** 呼叫的瞬間，立刻發送 `SELECT` 語句，並映射成真實的 Java 物件。如果找不到會回傳 `Optional.empty()`。

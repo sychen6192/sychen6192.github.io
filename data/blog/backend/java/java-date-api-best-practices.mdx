@@ -6,6 +6,12 @@ draft: false
 summary: '開發 Spring Boot 專案時，Entity 到底該用哪種 Date 型別？全面擁抱 Java 8 的 java.time API，解決潛在的併發與架構污染問題。'
 ---
 
+**目標讀者**：Spring Boot 後端工程師，在 Entity 或 DTO 中仍使用 `java.util.Date`/`java.sql.Date` 的人
+**先備知識**：了解 JPA Entity 的基本概念，知道 JDBC 與 Java 型別系統的存在
+**學習成果**：能立即判斷各種日期需求應使用的 `java.time` 型別，並理解舊 API 的架構設計缺陷
+
+---
+
 先上結論：如果不受舊套件限制，開發 Entity 或 DTO 時，**請直接改用 Java 8+ 的 `java.time` API。**
 
 只有日期用 `LocalDate`，日期加時間用 `LocalDateTime`。

@@ -6,6 +6,12 @@ draft: false
 summary: '明明沒呼叫 save()，資料庫的資料卻莫名其妙被改了？帶你還原誤觸 JPA 髒檢查 (Dirty Checking) 的案發現場與防禦解法。'
 ---
 
+**目標讀者**：使用 Spring Data JPA / Hibernate 的後端工程師
+**先備知識**：了解 `@Transactional` 基本用法，知道 JPA Entity 的概念
+**學習成果**：理解 Dirty Checking 機制，掌握三種防止非預期 DB 寫入的實戰策略
+
+---
+
 在 Spring Boot 專案裡，最容易讓人 Debug 到懷疑人生的就是「非預期寫入」。明明只是撈資料出來做個字串處理（例如把 Email 打星號），也沒呼叫 `save()`，結果 DB 裡的真實資料卻被覆寫了。
 
 ## 為什麼會發生幽靈更新？

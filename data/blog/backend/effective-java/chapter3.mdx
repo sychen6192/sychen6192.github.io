@@ -7,7 +7,9 @@ summary: '這些從 Object 繼承來的方法看似簡單，卻是許多隱藏 B
 ---
 
 **目標讀者**：有 Java 實務開發經驗，想理解 `Object` 核心方法背後的合約與地雷的工程師
+
 **先備知識**：了解繼承（inheritance）與多型概念，知道 `HashMap`、`HashSet` 的基本用法
+
 **學習成果**：能夠正確覆寫 `equals`、`hashCode`、`toString`，並知道為何應避開 `Cloneable`
 
 在 Java 的世界裡，雖然我們能夠自由設計各種業務類別，但所有類別最終都繼承自 `java.lang.Object`。
@@ -160,6 +162,7 @@ public final class PhoneNumber implements Comparable<PhoneNumber> {
 ---
 
 > **Effective Java 系列：**
+>
 > - [讀書筆記總目錄](/blog/backend/effective-java/table-of-contents)
 > - **上一篇**：[物件的建立與銷毀](/blog/backend/effective-java/chapter2)
 > - **本篇**：[所有物件的通用方法](/blog/backend/effective-java/chapter3)
