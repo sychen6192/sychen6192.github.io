@@ -9,41 +9,51 @@ layout: PostLayout
 canonicalUrl:
 ---
 
-在微服務架構中排查 Bug，有時候就像在當偵探。最近我們團隊遇到了一個堪稱「都市傳說」級別的詭異問題，不僅後端沒有任何 Error Log，甚至連安全攔截器 (OIDC Filter) 都沒碰到。
+**目標讀者**：負責維運 Spring Boot 微服務、使用 Kubernetes + Istio Service Mesh，並整合 Dynatrace / New Relic 等 APM 工具的後端工程師。
+**先備知識**：了解 Spring Boot 基礎配置、HTTP 協定 Headers、Kubernetes Pod 基本概念。
+**學習成果**：掌握「底層 Web Server 靜默拒絕請求」的排查思路，以及 APM Header 疊加造成大小超限的根本原因與解法。
 
-這篇文章將還原我們如何從一頭霧水，到最終透過開啟底層日誌，抓出隱藏在 Spring Boot 底層伺服器與 APM 監控工具之間的衝突。
+---
 
-## 👻 靈異的案發現場
+在微服務架構中排查 Bug，有時候就像在當偵探。這次我們遇到的是「都市傳說」級別的詭異問題——後端沒有任何 Error Log，連安全攔截器 (OIDC Filter) 都沒碰到，請求就憑空消失了。
 
-某天，前端同事回報了一個奇怪的現象：
-在極短時間（約 3 秒內）對同一支 API（`GET /api/bknd/document`）發起兩次一模一樣的請求時：
+## 案發現場
+
+某天，前端同事回報一個奇怪的現象：在極短時間（約 3 秒內）對同一支 API（`GET /api/bknd/document`）發起兩次一模一樣的請求：
 
 - **第一次請求**：完美成功，回傳 `HTTP 200 OK`。
 - **第二次請求**：瞬間失敗，回傳 `HTTP 400 Bad Request`。
-- **神奇的規律**：如果放著不管，過幾分鐘後再點，第一次又會成功，連續點擊又會失敗。
+- **神奇的規律**：放著不管幾分鐘後再點，第一次又會成功，連續點擊又會失敗。
 
-聽起來像是 Token 過期或防重放攻擊 (Anti-Replay) 造成的，但當我們翻開後端 Spring Boot 的日誌時，卻發現**乾乾淨淨，完全沒有任何 Exception 甚至 Access Log**。
+聽起來像是 Token 過期或防重放攻擊 (Anti-Replay) 造成的，但翻開後端 Spring Boot 的日誌：**乾乾淨淨，完全沒有任何 Exception 甚至 Access Log**。
 
-## 🕵️‍♂️ 抽絲剝繭的排查過程
+---
 
-### 1. 兇手是 Istio 嗎？
+## 排查過程
 
-在 Kubernetes 環境中，請求進到 Pod 會先經過 Istio 的 Envoy Proxy。我們第一時間查看了 Istio 的 Access Log：
+### 1. 確認 Istio 的嫌疑
+
+在 Kubernetes 環境中，請求進到 Pod 會先經過 Istio 的 Envoy Proxy。第一時間查看 Istio Access Log：
 
 ```bash
 [2026-03-05T08:22:42.895Z] "GET /api/bknd/document?docNo=T-123 HTTP/1.1" 400 - via_upstream - "-" 0 0 1 0 ...
 ```
 
-關鍵在於 via_upstream 和處理耗時 0 毫秒。這洗清了 Istio 的嫌疑：Envoy 已經把請求忠實地轉交給後端容器，是後端應用程式「瞬間」拒絕了這個請求。
+關鍵在於 **`via_upstream`** 與處理耗時 **0 毫秒**。Envoy 已忠實地將請求轉交給後端容器，是後端應用程式「瞬間」拒絕了這個請求。**Istio 無嫌疑。**
 
-2. 為什麼後端毫無日誌？
-   既然請求進了應用程式，為何沒有 Log？在 Spring Boot 中，請求會依序經過：
-   Web 伺服器 (Tomcat/Undertow) ➔ Spring Security (OIDC) ➔ Controller。
+### 2. 追蹤請求消失的位置
 
-如果連 OIDC Filter 都沒摸到，這代表請求在最底層的 Web 伺服器 (I/O 層)，就因為違反了某些 HTTP 基礎協定而被踹出去了。底層伺服器對於這類惡意或畸形請求，預設是「靜音」處理的。
+既然請求進了應用程式，為何沒有 Log？在 Spring Boot 中，請求處理順序為：
 
-3. 逼出底層驗屍報告：Undertow TRACE Log
-   為了讓守門員開口說話，我們在測試環境的 application.yml 中，強制打開了 Undertow (我們使用的底層伺服器) 的位元組解析日誌：
+```
+Web 伺服器 (Tomcat/Undertow) ➔ Spring Security (OIDC) ➔ Controller
+```
+
+若連 OIDC Filter 都沒碰到，代表請求在最底層的 Web 伺服器 I/O 層就被踢出去了。底層伺服器對於「畸形請求」預設採靜默處理，不輸出任何 Log。
+
+### 3. 開啟底層 TRACE 日誌
+
+在測試環境的 `application.yml` 中，強制打開 Undertow 的位元組解析日誌：
 
 ```yaml
 logging:
@@ -52,39 +62,47 @@ logging:
     io.undertow.server.protocol.http: TRACE
 ```
 
-重現問題後，Console 終於噴出了這句價值連城的鐵證：
+重現問題後，Console 終於出現這行決定性的錯誤訊息：
+
+```
 UT005006: Connection from /127.0.0.1:53705 terminated as request header was larger than 8192
+```
 
-💡 真相大白：8KB 的極限與 Dynatrace 的疊加
-錯誤訊息非常明確：HTTP Request Header 大小超過了 8192 Bytes (8KB)。但為何只有「3 秒內的第二次請求」會超標？
+---
 
-綜合我們系統的架構（Spring Boot + Istio + Dynatrace APM），完整的犯罪拼圖拼湊完成了：
+## 根本原因：8KB 上限與三方 Header 疊加
 
-Spring Boot 的底線：Spring Boot 預設的 max-http-header-size 就是嚴格的 8KB。
+**HTTP Request Header 大小超過了 8192 Bytes (8KB)。** 但為何只有「3 秒內的第二次請求」會超標？
 
-Istio 的加料：經過 Service Mesh 時，Envoy 會自動塞入一堆 x-envoy-\* 和 x-b3-traceid 等追蹤標頭。
+這套微服務架構中有三個角色各自往 Header 塞資料：
 
-Dynatrace 的致命一擊：前端掛載的 Dynatrace RUM Agent，為了把使用者的「連續動作」串連起來，會在短時間內的第二次請求中，不斷疊加更長的 x-dt... 標頭狀態碼。
+| 角色 | 行為 | 影響 |
+|------|------|------|
+| **Spring Boot** | 預設 `max-http-header-size` = 8KB | 設下硬性上限 |
+| **Istio Envoy** | 自動注入 `x-envoy-*`、`x-b3-traceid` 等追蹤標頭 | 固定增加額外負擔 |
+| **Dynatrace RUM Agent** | 為了串連使用者「連續動作」，在短時間內的第二次請求不斷疊加 `x-dt-...` 標頭 | 第二次請求時爆量 |
 
-這三者加在一起，在第二次請求時剛好撐破了 8192 Bytes 的天花板。Undertow 底層的 HttpRequestParser 一看到超標，為了防止緩衝區溢位攻擊，直接在 TCP 層級切斷連線並拋出 400。而放著幾分鐘後能重現，正是因為 Dynatrace 的 User Action Session 過期，Header 長度又重新歸零了。
+三方疊加，在第二次請求時剛好撐破 8192 Bytes 的天花板。Undertow 底層的 `HttpRequestParser` 偵測到超標，為了防止緩衝區溢位攻擊，直接在 TCP 層級切斷連線並回傳 400。放著幾分鐘後能恢復，是因為 Dynatrace 的 User Action Session 過期，Header 長度歸零重置。
 
-🛠️ 解決方案
-解法出乎意料地簡單。在現代企業級微服務架構中，8KB 的 Header 上限通常是不夠用的。我們只需要在 Spring Boot 配置檔中放寬這個限制即可：
+---
+
+## 解決方案
+
+在 `application.yml` 中放寬 Header 上限：
 
 ```yaml
 # application.yml
 server:
-  # 將 Header 上限調高至 16KB (企業環境亦常見設定為 32KB)
+  # 企業級微服務架構中，16KB 是更現實的起點；若有大型 JWT/Cookie 可進一步調高至 32KB
   max-http-header-size: 16KB
 ```
 
-重啟服務後，問題完美解決，連續點擊再也不會出現 400 錯誤。
+重啟服務後，問題完美解決。
 
-總結
-這次的除錯經驗給了我們幾個寶貴的教訓：
+---
 
-不要過度信任靜默的應用程式日誌：當你發現請求瞬間被拒卻沒有 Log 時，請把目光轉向底層的 Web Server 解析器 (Tomcat/Undertow)。
+## 排查心法總結
 
-了解基礎設施的預設值：Spring Boot 的 8KB 限制雖然安全，但在導入 APM 工具或 Service Mesh 後，很容易成為隱形的效能炸彈。
-
-留意那些「看不見的 Header」：APM 工具雖然強大，但它們在前端默默注入的追蹤標頭，有時就是壓垮駱駝的最後一根稻草。
+1. **底層 Web Server 靜默拒絕，看 TRACE Log**：當請求瞬間被拒且後端毫無記錄時，目光轉向底層解析器（Tomcat/Undertow），開啟 TRACE 等級日誌，讓守門員開口說話。
+2. **導入 APM/Service Mesh 後，重新評估預設值**：Spring Boot 的 8KB 限制在單體時代夠用，但 Istio + APM 的組合會讓 Header 大小悄然膨脹，需主動調整。
+3. **留意「看不見的 Header」**：APM 工具在前端默默注入的追蹤標頭，有時就是壓垮限制的最後一根稻草。
