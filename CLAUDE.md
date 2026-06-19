@@ -41,7 +41,8 @@ This is a **Next.js 15 App Router** blog powered by **Contentlayer2** for MDX co
 1. MDX/Markdown files in `data/blog/` are processed by Contentlayer (`contentlayer.config.ts`)
 2. Contentlayer generates typed content and metadata into `.contentlayer/generated/`
 3. Remark/Rehype plugin pipeline handles GFM, math (KaTeX), syntax highlighting (Prism), heading anchors, and blockquote alerts
-4. `postbuild.mjs` generates `app/tag-data.json` (tag index) and `public/search.json` (kbar search index)
+4. Contentlayer's `onSuccess` hook (end of `contentlayer.config.ts`) generates `app/tag-data.json` (tag index) and `public/search.json` (kbar search index) on every build/dev run
+5. `scripts/postbuild.mjs` runs after `next build` and generates the RSS feed via `scripts/rss.mjs` (writes to `out/` when `EXPORT=1`, else `public/`)
 
 ### Blog Post Frontmatter
 
@@ -74,7 +75,7 @@ pinned: true                # optional, shows pinned badge on home page
 
 - Blog is primarily in **Traditional Chinese (zh-TW)**; technical terms and code remain in English
 - Package manager is **Yarn** (v3.6.1) for local dev; CI uses npm
-- Deployment target is **GitHub Pages** via static export (`EXPORT=1 UNOPTIMIZED=1`)
+- Deployment target is **GitHub Pages** via static export, driven by `.github/workflows/pages.yml` on push to `main`. CI runs `npm ci` then `npm run build` with `EXPORT=1 UNOPTIMIZED=1 BASE_PATH=<pages base>`, then publishes the `out/` directory. `next.config.js` switches `output: 'export'` only when `EXPORT` is set
 - Tags are lowercase strings; `app/tag-data.json` is auto-generated — do not edit manually
 - The `pinned` frontmatter field is a custom addition beyond the base Pliny template
 
