@@ -102,7 +102,35 @@ try {
 }
 ```
 
-## 6. 將失敗的關鍵資訊寫入 Detail Message 中
+## 6. 為每個方法可能拋出的例外撰寫文件
+
+**請為方法可能拋出的「每一個」例外都撰寫 Javadoc 文件**，無論它是受檢還是非受檢例外。這份文件等於是在告訴呼叫端：「要滿足什麼前置條件，才能安全地使用我」。
+
+- 用 `@throws` 標籤逐一記錄每個例外，並寫清楚「在什麼情況下」會被拋出。
+- 受檢例外要明確宣告在 `throws` 子句中；**非受檢例外則只寫 `@throws` 文件，不要放進 `throws` 子句**（否則會誤導呼叫端以為必須 `catch`）。
+
+✅ **良好的例外文件範例：**
+
+```java
+/**
+ * 回傳指定索引位置的元素。
+ *
+ * @param index 元素索引，必須非負且小於 size()
+ * @return 該位置的元素
+ * @throws IndexOutOfBoundsException 當 index 超出範圍
+ *         （{@code index < 0 || index >= size()}）時拋出
+ */
+public E get(int index) {
+    if (index < 0 || index >= size) {
+        throw new IndexOutOfBoundsException("索引越界：" + index);
+    }
+    return elements[index];
+}
+```
+
+> 💡 **Tip:** 如果同一個例外（例如 `IllegalArgumentException`）會被類別中許多方法基於相同原因拋出，可以在「類別」層級的 Javadoc 統一說明，不必在每個方法重複撰寫。
+
+## 7. 將失敗的關鍵資訊寫入 Detail Message 中
 
 當系統在凌晨三點崩潰，值班工程師被 call 起來看 Log 時，他最不想看到的就是一個光禿禿的 `IndexOutOfBoundsException`。
 
@@ -120,7 +148,7 @@ public class OutOfStockException extends RuntimeException {
 }
 ```
 
-## 7. 努力保持「失敗原子性」 (Failure Atomicity)
+## 8. 努力保持「失敗原子性」 (Failure Atomicity)
 
 **一個失敗的方法呼叫，應該讓物件保持在它被呼叫之前的狀態。**
 
@@ -132,7 +160,7 @@ public class OutOfStockException extends RuntimeException {
 2. **在修改狀態前，先檢查參數的有效性**。確保可能出錯的邏輯，發生在修改任何屬性之前。
 3. **在物件的一份「拷貝 (Copy)」上進行操作**，確定一切成功後再替換掉原本的資料。
 
-## 8. 絕對不要忽略例外 (Don't Ignore Exceptions)
+## 9. 絕對不要忽略例外 (Don't Ignore Exceptions)
 
 **空的 catch 區塊是萬惡之源！** 它會把系統發出的求救信號直接消音，讓系統帶著潛在的錯誤繼續運行，直到在未來的某個時刻引發更大的災難。
 
@@ -166,4 +194,4 @@ try {
 >
 > - [讀書筆記總目錄](/blog/backend/effective-java/table-of-contents)
 > - **上一篇**：[列舉與註解](/blog/backend/effective-java/chapter6)
-> - **本篇**：[優雅駕馭例外處理](/blog/backend/effective-java/chapter9)
+> - **本篇**：[優雅駕馭例外處理](/blog/backend/effective-java/chapter10)

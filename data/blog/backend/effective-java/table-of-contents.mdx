@@ -3,7 +3,7 @@ title: 'Effective Java 讀書筆記總目錄'
 date: '2026-03-14'
 description: 'Joshua Bloch 的《Effective Java》是 Java 開發者的必讀聖經。這篇是整個系列讀書筆記的導覽目錄，帶你一步步寫出更強健的程式碼。'
 tags: ['Java', 'Backend', 'Effective Java', 'Table of Contents']
-summary: '78 個讓程式碼更優雅的黃金守則'
+summary: '90 個讓程式碼更優雅的黃金守則'
 pinned: true
 ---
 
@@ -39,31 +39,37 @@ pinned: true
 
 👉 **[Effective Java 實戰筆記：列舉與註解的強大威力](../chapter6)**
 
-### 🛠️ 第 7 章：方法 (Methods)
+### ✨ 第 7 章：Lambda 與 Stream (Lambdas and Streams)
+
+Java 8 帶來的函數式革命。本章說明為何 Lambda 優於匿名類別、何時該改用方法參考 (Method Reference)、審慎使用 Stream 的時機，以及在 Stream 中堅持使用無副作用函式的重要性。
+
+⏳ _[即將推出]_
+
+### 🛠️ 第 8 章：方法 (Methods)
 
 設計 API 方法時的防禦性思維。包含如何檢查參數有效性、何時該做防禦性拷貝 (Defensive copies)，以及為什麼回傳空的集合永遠比回傳 null 來得好。
 
 ⏳ _[即將推出]_
 
-### 💻 第 8 章：一般程式設計 (General Programming)
+### 💻 第 9 章：一般程式設計 (General Programming)
 
 日常開發的各種最佳實踐：縮小局部變數的作用域、偏好 for-each 迴圈、避免不必要的字串拼接，以及在使用浮點數與基本型別時的注意事項。
 
 ⏳ _[即將推出]_
 
-### ⚠️ 第 9 章：例外處理 (Exceptions)
+### ⚠️ 第 10 章：例外處理 (Exceptions)
 
 例外是用來處理「真正的例外狀況」，而不是拿來做流程控制的。這章釐清了 Checked Exception 與 Runtime Exception 的分水嶺，並強調絕對不要把 catch 區塊留空。
 
-👉 **[Effective Java 實戰筆記：優雅駕馭例外處理](../chapter9)**
+👉 **[Effective Java 實戰筆記：優雅駕馭例外處理](../chapter10)**
 
-### 🔄 第 10 章：併發 (Concurrency)
+### 🔄 第 11 章：併發 (Concurrency)
 
 多執行緒一直是 Java 裡最難搞定的一環。從同步存取共享的可變資料，到使用 Executors 取代傳統的 Threads，帶你避開死鎖與資料不一致的地雷。
 
 ⏳ _[即將推出]_
 
-### 💾 第 11 章：序列化 (Serialization)
+### 💾 第 12 章：序列化 (Serialization)
 
 實現 `Serializable` 介面雖然簡單，但會大大限制類別未來的演進。這章探討了自訂序列化表單的重要性，以及如何利用 Enum 或序列化代理 (Serialization Proxies) 來保護系統。
 
